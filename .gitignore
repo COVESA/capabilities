@@ -1,0 +1,12 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+
+# Python cache (in case a reader runs tooling locally)
+__pycache__/
+*.py[cod]
+
+# Documentation build output
+_build/
+site/

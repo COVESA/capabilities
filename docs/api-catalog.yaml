@@ -1,0 +1,159 @@
+# API Catalog
+#
+# The machine-readable registry of every capability a vehicle exposes. Apps,
+# orchestrators, and AI agents read this to discover what a vehicle can do,
+# without knowing anything about the hardware underneath.
+#
+# Each entry carries two API surfaces:
+#   northbound  - what callers may ask for (semantic, versioned, no hardware detail)
+#   southbound  - the abstract ports the capability depends on (the hardware seam)
+#
+# Fields follow the runtime catalog's own serialized shape so this file reads
+# the same as the live registry.
+
+catalog_version: "1.0.0"
+
+capabilities:
+
+  window:
+    descriptor:
+      name: window
+      display_name: Window Movement Control
+      id: urn:capability:body:moveWindow
+      description: >
+        Controls vehicle power windows with position targeting, pinch detection,
+        and auto-reverse safety. Supports per-zone operation (driver/passenger,
+        front/rear) with arbitration and vehicle-state preconditions.
+      domain: body
+      api_version: "2.0.0"
+      asil_tier: ASIL_B
+      state_topic: WINDOW_STATE
+      contract: contracts/window-api.yaml
+
+    # ---- Northbound: callers above the capability ------------------------
+    northbound:
+      - name: moveWindow
+        description: Move a single window zone to target (0% = closed, 100% = open)
+        command_type: MoveWindowCommand
+        response_type: WindowState
+        is_async: true
+        requires_arbitration: true
+        vss_paths:
+          - Vehicle.Cabin.Door.Row1.DriverSide.Window.Position
+          - Vehicle.Cabin.Door.Row1.PassengerSide.Window.Position
+          - Vehicle.Cabin.Door.Row2.DriverSide.Window.Position
+          - Vehicle.Cabin.Door.Row2.PassengerSide.Window.Position
+      - name: releaseWindow
+        description: Release the per-zone window lock for a given request_id
+        command_type: str
+        response_type: "None"
+        is_async: false
+        requires_arbitration: false
+      - name: canExecuteWindow
+        description: Pre-flight check - runs the full pipeline with no side effects
+        command_type: MoveWindowCommand
+        response_type: WindowState
+        is_async: false
+        requires_arbitration: false
+      - name: getWindowState
+        description: Read the current state for a zone (position, status, reason)
+        command_type: WindowZone
+        response_type: WindowState
+        is_async: false
+        requires_arbitration: false
+        vss_paths:
+          - Vehicle.Cabin.Door.Row1.DriverSide.Window.Position
+      - name: getWindowSystemModel
+        description: Introspect the physics model parameters the capability is validated against
+        command_type: "None"
+        response_type: WindowSystemModel
+        is_async: false
+        requires_arbitration: false
+
+    # ---- Southbound: the hardware seam below the capability --------------
+    southbound:
+      # Flat list of the actuator operations this capability calls, as carried
+      # on the descriptor. Detail for each port follows under `ports`.
+      dependencies:
+        - move_window
+        - get_window_position
+
+      ports:
+        - name: WindowActuatorPort
+          kind: hardware
+          required: true
+          description: Power window actuation - the abstract hardware interface.
+          operations:
+            - name: move_window
+              signature: "move_window(zone: str, target_pct: float) -> float"
+              description: Command a window to a target position; returns the resulting position.
+              async: true
+              raises: ActuatorError
+            - name: get_window_position
+              signature: "get_window_position(zone: str) -> float"
+              description: Read the current position for a zone as a percentage.
+              async: true
+
+        - name: PowerAuthorizationPort
+          kind: infrastructure
+          required: true
+          description: Central power authorization - a capability requests a budget before it moves.
+          operations:
+            - name: request_power
+              signature: "request_power(budget_w: float) -> PowerGrant"
+              description: Ask for a power budget; returns a grant or a refusal.
+              async: true
+            - name: release_power
+              signature: "release_power() -> None"
+              description: Release the held power budget.
+              async: true
+
+        - name: VehicleStatePort
+          kind: infrastructure
+          required: true
+          description: Observation-only view of vehicle state (never a command path).
+          observations:
+            - power_state
+            - ota_state
+            - supply_voltage_v
+
+      # Deployment-physics handshake every southbound port shares.
+      handshake:
+        - name: describe_actuator
+          signature: "describe_actuator(capability: str) -> ActuatorProfile"
+          description: The binding hands its physics envelope up to the capability.
+        - name: report_move_outcome
+          signature: "report_move_outcome(capability: str, outcome: MoveOutcome) -> ActuatorProfile"
+          description: Reports a measured move so the binding can refine its profile.
+
+    # ---- Physical model the capability is validated against --------------
+    system_model:
+      model_name: power_window_bond_graph
+      stages: 4
+      parameters:
+        Ke: {value: 0.5, unit: "V/(rad/s)", description: Motor back-EMF constant}
+        Kt: {value: 0.5, unit: "Nm/A", description: Motor torque constant}
+        R: {value: 2.0, unit: ohm, description: Motor winding resistance}
+        L: {value: 0.005, unit: henry, description: Motor winding inductance}
+        J_motor: {unit: "kg*m^2", description: Motor rotor inertia}
+        B_motor: {unit: "Nm*s/rad", description: Motor viscous friction}
+        actuator_gain_m_rad: {unit: "m/rad"}
+        lead_angle_deg: {unit: deg, description: Worm screw lead angle}
+        friction_coefficient: {description: Worm screw linkage friction coefficient}
+        self_locking: {description: True if the linkage cannot be back-driven}
+        window_mass_kg: {value: 6.5, unit: kg}
+        seal_damping_Ns_m: {value: 3600.0, unit: "N*s/m"}
+        max_position_mm: {value: 280, unit: mm}
+
+# ---- How the catalog is used ------------------------------------------
+#
+#   1. Enumerate  - list every capability and its version.
+#   2. Introspect - read the northbound operations and southbound ports of one
+#                   capability.
+#   3. Fetch      - follow `contract` to the OpenAPI contract and generate a
+#                   typed client.
+#   4. Model      - read `system_model` to simulate or validate behaviour.
+#
+# The descriptor is the index; the contract is the detail. A caller finds the
+# capability here, then reads its contract to learn the exact request and
+# response shapes.

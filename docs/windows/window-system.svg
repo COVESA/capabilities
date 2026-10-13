@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 760" width="1040" height="760" role="img" aria-label="Power window capability system view">
+  <defs>
+    <marker id="arr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#8b949e"/>
+    </marker>
+    <marker id="arrBlue" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#58a6ff"/>
+    </marker>
+    <marker id="arrPurple" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#bc8cff"/>
+    </marker>
+    <marker id="arrOrange" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#f0883e"/>
+    </marker>
+    <linearGradient id="nbGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#0f2544"/>
+    </linearGradient>
+    <linearGradient id="sbGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4a2810"/>
+      <stop offset="100%" stop-color="#2a1608"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1040" height="760" fill="#080c10"/>
+
+  <!-- Title -->
+  <text x="30" y="42" fill="#e6edf3" font-size="18" font-weight="700" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">Power Window Capability — System View</text>
+  <text x="30" y="64" fill="#8b949e" font-size="12.5" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">A capability sits between callers above and the motor and sensors below.</text>
+
+  <!-- ===== Callers ===== -->
+  <rect x="30" y="90" width="220" height="70" rx="8" fill="#161b22" stroke="#30363d"/>
+  <text x="140" y="122" fill="#e6edf3" font-size="13" font-weight="700" text-anchor="middle" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">Driver / App</text>
+  <text x="140" y="142" fill="#8b949e" font-size="11" text-anchor="middle" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">requests a movement</text>
+
+  <rect x="270" y="90" width="220" height="70" rx="8" fill="#161b22" stroke="#30363d"/>
+  <text x="380" y="122" fill="#e6edf3" font-size="13" font-weight="700" text-anchor="middle" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">Comfort Feature</text>
+  <text x="380" y="142" fill="#8b949e" font-size="11" text-anchor="middle" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">e.g. easy-entry</text>
+
+  <!-- Northbound boundary -->
+  <line x1="140" y1="160" x2="140" y2="188" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrBlue)"/>
+  <line x1="380" y1="160" x2="380" y2="188" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrBlue)"/>
+  <text x="30" y="182" fill="#7dd3fc" font-size="11" font-weight="700" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">NORTHBOUND INTERFACE</text>
+  <rect x="30" y="188" width="980" height="34" rx="4" fill="url(#nbGrad)" stroke="#58a6ff" stroke-width="1.6"/>
+  <text x="520" y="210" fill="#e6edf3" font-size="12.5" font-weight="700" text-anchor="middle" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">WindowControl API  ·  semantic, versioned, hardware-agnostic</text>
+
+  <!-- Window system envelope -->
+  <line x1="520" y1="222" x2="520" y2="252" stroke="#58a6ff" stroke-width="1.6" marker-end="url(#arrBlue)"/>
+  <rect x="30" y="252" width="980" height="230" rx="10" fill="#0b1220" stroke="#58a6ff" stroke-width="1.5"/>
+  <text x="50" y="278" fill="#58a6ff" font-size="13" font-weight="700" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">WINDOW SYSTEM</text>
+
+  <!-- WindowManager -->
+  <rect x="60" y="300" width="300" height="86" rx="6" fill="#0d1117" stroke="#58a6ff" stroke-width="1.4"/>
+  <text x="210" y="330" fill="#58a6ff" font-size="12.5" font-weight="700" text-anchor="middle" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">WindowManager (capability)</text>
+  <text x="210" y="352" fill="#e6edf3" font-size="10.5" text-anchor="middle" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">moveWindow() · getWindowState()</text>
+  <text x="210" y="370" fill="#8b949e" font-size="9.5" text-anchor="middle" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">Arbitrate · Precondition · Safety · Dispatch · Publish</text>
+
+  <!-- Required ports -->
+  <rect x="420" y="295" width="200" height="42" rx="5" fill="#0d1117" stroke="#f0883e" stroke-width="1.3"/>
+  <text x="520" y="314" fill="#f0883e" font-size="11" font-weight="700" text-anchor="middle" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">WindowActuatorPort</text>
+  <text x="520" y="329" fill="#8b949e" font-size="9" text-anchor="middle" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">required · hardware abstraction</text>
+
+  <rect x="660" y="295" width="180" height="42" rx="5" fill="#0d1117" stroke="#30363d" stroke-width="1.3"/>
+  <text x="750" y="314" fill="#e6edf3" font-size="11" font-weight="700" text-anchor="middle" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">PowerAuthorizationPort</text>
+  <text x="750" y="329" fill="#8b949e" font-size="9" text-anchor="middle" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">required · infrastructure</text>
+
+  <rect x="860" y="295" width="140" height="42" rx="5" fill="#0d1117" stroke="#30363d" stroke-width="1.3"/>
+  <text x="930" y="314" fill="#e6edf3" font-size="11" font-weight="700" text-anchor="middle" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">VehicleStatePort</text>
+  <text x="930" y="329" fill="#8b949e" font-size="9" text-anchor="middle" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">required · observation</text>
+
+  <!-- manager uses ports -->
+  <line x1="360" y1="316" x2="418" y2="316" stroke="#8b949e" stroke-width="1.4" marker-end="url(#arr)"/>
+  <line x1="360" y1="330" x2="658" y2="342" stroke="#8b949e" stroke-width="1.2" marker-end="url(#arr)"/>
+  <line x1="360" y1="330" x2="858" y2="342" stroke="#8b949e" stroke-width="1.2" marker-end="url(#arr)"/>
+
+  <!-- internal parts row -->
+  <g font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+    <rect x="60" y="400" width="160" height="58" rx="6" fill="#111827" stroke="#30363d"/>
+    <text x="140" y="424" fill="#e6edf3" font-size="11" font-weight="600" text-anchor="middle">WindowMotor</text>
+    <text x="140" y="440" fill="#8b949e" font-size="9.5" text-anchor="middle">actuator</text>
+
+    <rect x="240" y="400" width="160" height="58" rx="6" fill="#111827" stroke="#30363d"/>
+    <text x="320" y="424" fill="#e6edf3" font-size="11" font-weight="600" text-anchor="middle">PinchSensor</text>
+    <text x="320" y="440" fill="#8b949e" font-size="9.5" text-anchor="middle">safety interlock</text>
+
+    <rect x="420" y="400" width="160" height="58" rx="6" fill="#111827" stroke="#30363d"/>
+    <text x="500" y="424" fill="#e6edf3" font-size="11" font-weight="600" text-anchor="middle">PositionEncoder</text>
+    <text x="500" y="440" fill="#8b949e" font-size="9.5" text-anchor="middle">feedback</text>
+
+    <rect x="600" y="400" width="160" height="58" rx="6" fill="#111827" stroke="#30363d"/>
+    <text x="680" y="424" fill="#e6edf3" font-size="11" font-weight="600" text-anchor="middle">WindowGlass</text>
+    <text x="680" y="440" fill="#8b949e" font-size="9.5" text-anchor="middle">mechanical output</text>
+
+    <rect x="780" y="400" width="220" height="58" rx="6" fill="#111827" stroke="#30363d"/>
+    <text x="890" y="424" fill="#e6edf3" font-size="11" font-weight="600" text-anchor="middle">WindowFrame</text>
+    <text x="890" y="440" fill="#8b949e" font-size="9.5" text-anchor="middle">mechanical structure</text>
+  </g>
+
+  <!-- Southbound boundary -->
+  <line x1="210" y1="482" x2="210" y2="520" stroke="#f0883e" stroke-width="1.6" marker-end="url(#arrOrange)"/>
+  <text x="30" y="514" fill="#fbbf24" font-size="11" font-weight="700" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">SOUTHBOUND INTERFACE — ACTUATORPORT BINDING</text>
+  <rect x="30" y="520" width="980" height="50" rx="4" fill="url(#sbGrad)" stroke="#f0883e" stroke-width="1.6"/>
+  <text x="520" y="541" fill="#e6edf3" font-size="12" font-weight="700" text-anchor="middle" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">ActuatorPort binding — abstract calls mapped to wire frames</text>
+  <text x="520" y="558" fill="#f0883e" font-size="10" text-anchor="middle" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">SOME/IP · CAN-FD · LIN · PWM — zero ECU / bus detail above this line</text>
+
+  <!-- Hardware row -->
+  <line x1="210" y1="570" x2="210" y2="606" stroke="#f0883e" stroke-width="1.6" marker-end="url(#arrOrange)"/>
+  <rect x="30" y="606" width="980" height="120" rx="10" fill="#111827" stroke="#f0883e" stroke-width="1.6"/>
+  <text x="50" y="632" fill="#f0883e" font-size="12.5" font-weight="700" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">HARDWARE — motor, regulator, encoder, pinch sensor</text>
+
+  <g font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+    <rect x="60" y="650" width="210" height="56" rx="6" fill="#1e293b" stroke="#f0883e" stroke-width="1.2"/>
+    <text x="165" y="674" fill="#ffffff" font-size="11" font-weight="700" text-anchor="middle">Window Regulator</text>
+    <text x="165" y="690" fill="#94a3b8" font-size="9.5" text-anchor="middle">worm drive · 25A peak</text>
+
+    <rect x="290" y="650" width="210" height="56" rx="6" fill="#1e293b" stroke="#d29922" stroke-width="1.2"/>
+    <text x="395" y="674" fill="#ffffff" font-size="11" font-weight="700" text-anchor="middle">Hall Encoder</text>
+    <text x="395" y="690" fill="#94a3b8" font-size="9.5" text-anchor="middle">position (mm)</text>
+
+    <rect x="520" y="650" width="210" height="56" rx="6" fill="#1e293b" stroke="#d29922" stroke-width="1.2"/>
+    <text x="625" y="674" fill="#ffffff" font-size="11" font-weight="700" text-anchor="middle">Anti-Pinch Guard</text>
+    <text x="625" y="690" fill="#94a3b8" font-size="9.5" text-anchor="middle">&gt;100N auto-reverse (&lt;25ms)</text>
+
+    <rect x="750" y="650" width="240" height="56" rx="6" fill="#1e293b" stroke="#f0883e" stroke-width="1.2"/>
+    <text x="870" y="674" fill="#ffffff" font-size="11" font-weight="700" text-anchor="middle">Window Motor</text>
+    <text x="870" y="690" fill="#94a3b8" font-size="9.5" text-anchor="middle">DC motor + gearing</text>
+  </g>
+
+  <!-- Legend -->
+  <g font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+    <rect x="30" y="736" width="12" height="12" rx="3" fill="#58a6ff"/>
+    <text x="50" y="746" fill="#8b949e" font-size="11">Capability / northbound</text>
+    <rect x="250" y="736" width="12" height="12" rx="3" fill="#f0883e"/>
+    <text x="270" y="746" fill="#8b949e" font-size="11">Southbound &amp; hardware</text>
+    <rect x="470" y="736" width="12" height="12" rx="3" fill="#d29922"/>
+    <text x="490" y="746" fill="#8b949e" font-size="11">Sensors</text>
+  </g>
+</svg>

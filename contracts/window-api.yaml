@@ -1,0 +1,292 @@
+openapi: "3.1.0"
+info:
+  title: Window Capability API
+  version: "2.0.0"
+  description: |
+    Northbound API contract for the Window capability.
+    Manages power window movement with arbitration, pinch detection,
+    auto-reverse safety, and per-zone control.
+
+    VSS Alignment:
+      - Vehicle.Cabin.Door.Row1.DriverSide.Window.Position
+      - Vehicle.Cabin.Door.Row1.PassengerSide.Window.Position
+      - Vehicle.Cabin.Door.Row2.DriverSide.Window.Position
+      - Vehicle.Cabin.Door.Row2.PassengerSide.Window.Position
+
+    ASIL Tier: ASIL_B (physical actuator with pinch detection interlock)
+
+    System Model: DC Motor with pinch detection
+      - Travel curve: 0mm (closed) -> 280mm (full open)
+      - Motor torque limit: auto-reverse at pinch force > 100N above baseline
+      - Speed profile: ramp-up 0-10%, cruise 10-90%, ramp-down 90-100%
+      - Thermal derating: speed capped at 50% if motor temp > 100C
+  x-capability-name: window
+  x-api-version: "2.0.0"
+  x-domain: body
+  x-asil-tier: ASIL_B
+
+paths:
+  /capabilities/window/move:
+    post:
+      operationId: moveWindow
+      summary: Move a window to a target position
+      description: |
+        Runs the five-phase pipeline:
+        1. ARBITRATE - priority-based, first-in-wins with pre-emption
+        2. PRECONDITION CHECK - vehicle state (power, OTA)
+        3. SAFETY CASE - voltage, range validation
+        4. ACTUATOR CALL - via ActuatorPort with pinch monitoring
+        5. STATE PUBLISH - publish result on the event bus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MoveWindowCommand"
+      responses:
+        "202":
+          description: Command accepted - window is moving
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WindowState"
+        "409":
+          description: Arbitration conflict - window held by higher-priority source
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WindowState"
+        "422":
+          description: Input validation failure (out of range)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WindowState"
+        "403":
+          description: Role denied - caller not permitted
+
+  /capabilities/window/release:
+    post:
+      operationId: releaseWindow
+      summary: Explicitly release the window lock
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [request_id]
+              additionalProperties: false
+              properties:
+                request_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: Lock released
+
+  /capabilities/window/can-execute:
+    post:
+      operationId: canExecuteWindow
+      summary: Pre-flight check - no side effects
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MoveWindowCommand"
+      responses:
+        "200":
+          description: Pre-flight result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WindowState"
+
+  /capabilities/window/state:
+    get:
+      operationId: getWindowState
+      parameters:
+        - name: zone
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/WindowZone"
+      responses:
+        "200":
+          description: Current window state for zone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WindowState"
+
+  /capabilities/window/model:
+    get:
+      operationId: getWindowSystemModel
+      summary: Get the window system model parameters
+      description: |
+        Returns the physics-based transfer function model parameters
+        for the window motor. Used for simulation and validation.
+      responses:
+        "200":
+          description: System model parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WindowSystemModel"
+
+components:
+  schemas:
+    RequestSource:
+      type: string
+      enum: [APP, DRIVER, OEM_AUTOMATION, SAFETY]
+
+    WindowZone:
+      type: string
+      enum: [DRIVER_FRONT, PASSENGER_FRONT, DRIVER_REAR, PASSENGER_REAR, ALL]
+      x-vss-mapping:
+        DRIVER_FRONT: "Vehicle.Cabin.Door.Row1.DriverSide.Window"
+        PASSENGER_FRONT: "Vehicle.Cabin.Door.Row1.PassengerSide.Window"
+        DRIVER_REAR: "Vehicle.Cabin.Door.Row2.DriverSide.Window"
+        PASSENGER_REAR: "Vehicle.Cabin.Door.Row2.PassengerSide.Window"
+
+    MoveWindowCommand:
+      type: object
+      required: [zone, target_pct]
+      additionalProperties: false
+      x-frozen: true
+      description: The request source is not part of the payload; the northbound
+        adapter sets it from the caller's verified role. Unknown fields, including
+        `source`, are rejected.
+      properties:
+        zone:
+          $ref: "#/components/schemas/WindowZone"
+        target_pct:
+          type: number
+          minimum: 0.0
+          maximum: 100.0
+          description: "Target position: 0.0 = fully closed, 100.0 = fully open"
+          x-vss-path: "Vehicle.Cabin.Door.Row1.DriverSide.Window.Position"
+          x-unit: percent
+        request_id:
+          type: string
+          format: uuid
+        timeout_s:
+          type: number
+          default: 30.0
+
+    WindowStatus:
+      type: string
+      enum: [STATIONARY, MOVING, PINCHED, INHIBITED, REJECTED]
+
+    WindowInhibitReason:
+      type: string
+      enum:
+        - POWER_OFF
+        - VEHICLE_IN_MOTION_LOCK
+        - OTA_IN_PROGRESS
+        - UNDERVOLTAGE
+        - OUT_OF_RANGE
+        - PINCH_DETECTED
+        - THERMAL_PROTECTION
+        - CHILD_LOCK_ACTIVE
+        - WINDOW_BUSY
+        - ACTUATOR_FAULT
+        - RELEASED
+        - TIMEOUT
+
+    WindowState:
+      type: object
+      required: [status, position_pct, zone, retry_after_s, request_id, api_version]
+      x-frozen: true
+      properties:
+        status:
+          $ref: "#/components/schemas/WindowStatus"
+        position_pct:
+          type: [number, "null"]
+          description: Null only when the position is unknown (read-back
+            failed and none was confirmed; reason ACTUATOR_FAULT)
+          x-vss-path: "Vehicle.Cabin.Door.Row1.DriverSide.Window.Position"
+          x-unit: percent
+          x-range: [0.0, 100.0]
+        zone:
+          $ref: "#/components/schemas/WindowZone"
+        reason:
+          oneOf:
+            - $ref: "#/components/schemas/WindowInhibitReason"
+            - type: "null"
+          description: Typed inhibit/rejection reason; null on success.
+        message:
+          type: [string, "null"]
+          description: Human-readable context (never branch on this)
+        retry_after_s:
+          type: [number, "null"]
+          description: Seconds until the current lock holder auto-releases;
+            null if no hint.
+        winning_source:
+          oneOf:
+            - $ref: "#/components/schemas/RequestSource"
+            - type: "null"
+        request_id:
+          type: [string, "null"]
+          format: uuid
+          description: Echoed from the command.
+        api_version:
+          type: string
+          pattern: "^\\d+\\.\\d+\\.\\d+$"
+
+    WindowSystemModel:
+      type: object
+      description: |
+        4-stage bond-graph power window model parameters for validation
+        (the injected window plant model's parameters).
+      properties:
+        model_name:
+          type: string
+        Ke:
+          type: number
+          x-unit: "V/(rad/s)"
+          description: Motor back-EMF constant
+        Kt:
+          type: number
+          x-unit: "Nm/A"
+          description: Motor torque constant
+        R:
+          type: number
+          x-unit: ohm
+          description: Motor winding resistance
+        L:
+          type: number
+          x-unit: henry
+          description: Motor winding inductance
+        J_motor:
+          type: number
+          x-unit: "kg*m^2"
+          description: Motor rotor inertia
+        B_motor:
+          type: number
+          x-unit: "Nm*s/rad"
+          description: Motor viscous friction
+        actuator_gain_m_rad:
+          type: number
+          x-unit: "m/rad"
+        lead_angle_deg:
+          type: number
+          x-unit: deg
+          description: Worm screw lead angle
+        friction_coefficient:
+          type: number
+          description: Worm screw linkage friction coefficient
+        self_locking:
+          type: boolean
+          description: True if the linkage cannot be back-driven (lead angle <
+            friction angle)
+        window_mass_kg:
+          type: number
+          x-unit: kg
+        seal_damping_Ns_m:
+          type: number
+          x-unit: "N*s/m"
+        max_position_mm:
+          type: number
+          x-unit: mm
