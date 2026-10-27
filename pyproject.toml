@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "capability-framework"
+version = "0.1.0"
+description = "A minimal vehicle capability framework — northbound/southbound interfaces, a worked power-window capability, and a runnable bond-graph motor model."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "flask>=3.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4"]
+
+[project.scripts]
+capability-window-example = "capability_framework.app:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+capability_framework = ["static/*.html"]
+"capability_framework.explorer" = ["templates/*.html"]

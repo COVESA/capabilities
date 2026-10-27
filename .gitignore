@@ -7,6 +7,14 @@ Thumbs.db
 __pycache__/
 *.py[cod]
 
+# Python build / environment artifacts
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
 # Documentation build output
 _build/
 site/

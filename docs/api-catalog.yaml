@@ -9,7 +9,8 @@
 #   southbound  - the abstract ports the capability depends on (the hardware seam)
 #
 # Fields follow the runtime catalog's own serialized shape so this file reads
-# the same as the live registry.
+# the same as the live registry. The running example serves the same descriptor
+# at GET /vehicle/window/catalog.
 
 catalog_version: "1.0.0"
 

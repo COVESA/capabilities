@@ -1,0 +1,1749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SDV API Explorer</title>
+<style>
+  :root {
+    --bg:#0d1117; --surface:#161b22; --surface2:#21262d; --surface3:#2d333b;
+    --border:#30363d; --text:#e6edf3; --text2:#8b949e; --text3:#656d76;
+    --accent:#58a6ff; --green:#3fb950; --yellow:#d29922;
+    --red:#f85149; --purple:#bc8cff; --orange:#f0883e;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+       background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;}
+
+  /* ── Top bar ─────────────────────────────────────────────── */
+  .top-bar{background:var(--surface);border-bottom:1px solid var(--border);
+           padding:10px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;}
+  .top-bar h1{font-size:16px;font-weight:600;white-space:nowrap;}
+  .top-bar .sep{color:var(--border);font-size:18px;}
+  .top-bar .page-title{font-size:15px;color:var(--accent);}
+  .top-bar .nav{display:flex;gap:4px;margin-left:auto;}
+  .top-bar .nav a{color:var(--text2);text-decoration:none;padding:5px 11px;
+                  border-radius:6px;font-size:13px;transition:all 0.15s;}
+  .top-bar .nav a:hover{background:var(--surface2);color:var(--text);}
+  .top-bar .nav a.active{background:var(--surface3);color:var(--accent);}
+
+  /* ── Two-panel layout ───────────────────────────────────── */
+  .layout{display:flex;flex:1;overflow:hidden;}
+
+  /* ── Sidebar ─────────────────────────────────────────────── */
+  .sidebar{width:260px;flex-shrink:0;background:var(--surface);
+           border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+  .sidebar-header{padding:14px 16px 10px;border-bottom:1px solid var(--border);}
+  .sidebar-header h2{font-size:12px;font-weight:600;color:var(--text2);
+                     text-transform:uppercase;letter-spacing:0.8px;}
+  .sidebar-body{flex:1;overflow-y:auto;padding:8px 0;}
+
+  .domain-group{}
+  .domain-label{padding:8px 16px 4px;font-size:11px;font-weight:600;color:var(--text3);
+                text-transform:uppercase;letter-spacing:0.7px;display:flex;align-items:center;gap:6px;}
+  .subdomain-label{padding:4px 24px 4px;font-size:11px;color:var(--text3);font-weight:500;}
+
+  .cap-item{display:flex;align-items:center;gap:9px;padding:7px 16px 7px 28px;
+            cursor:pointer;font-size:13px;color:var(--text2);
+            border-left:2px solid transparent;transition:all 0.1s;}
+  .cap-item:hover{background:var(--surface2);color:var(--text);}
+  .cap-item.active{background:rgba(88,166,255,0.08);color:var(--accent);
+                   border-left-color:var(--accent);}
+  .cap-item .cap-icon{font-size:14px;flex-shrink:0;}
+  .cap-item .cap-name{flex:1;line-height:1.3;}
+  .cap-item .cap-ver{font-size:10px;color:var(--text3);}
+
+  .asil-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+  .asil-dot.b{background:var(--orange);}
+  .asil-dot.d{background:var(--red);}
+  .asil-dot.qm{background:var(--text3);}
+
+  /* Hierarchical package navigation */
+  .nav-root{padding:8px 16px 4px;font-size:11px;font-weight:600;color:var(--text3);
+            text-transform:uppercase;letter-spacing:0.7px;display:flex;align-items:center;gap:6px;}
+  .pkg-group{margin-bottom:1px;}
+  .pkg-header{display:flex;align-items:center;gap:7px;padding:7px 16px 7px 18px;cursor:pointer;
+              font-size:12px;font-weight:600;color:var(--text);user-select:none;}
+  .pkg-header:hover{background:var(--surface2);}
+  .pkg-header .chev{color:var(--text3);font-size:9px;width:9px;transition:transform 0.15s;}
+  .pkg-group.collapsed .chev{transform:rotate(-90deg);}
+  .pkg-header .pkg-count{margin-left:auto;font-size:10px;color:var(--text3);
+                         background:var(--surface2);border-radius:9px;padding:0 7px;}
+  .pkg-group.collapsed .pkg-items{display:none;}
+  .cap-item .gen-badge{font-size:8px;color:var(--purple);border:1px solid #bc8cff40;
+                       border-radius:7px;padding:0 4px;flex-shrink:0;}
+
+  /* ── Main panel ─────────────────────────────────────────── */
+  .main{flex:1;overflow-y:auto;display:flex;flex-direction:column;}
+
+  /* Welcome state */
+  .welcome{flex:1;display:flex;flex-direction:column;align-items:center;
+           justify-content:center;padding:48px;text-align:center;color:var(--text2);}
+  .welcome .big-icon{font-size:56px;margin-bottom:20px;}
+  .welcome h2{font-size:22px;color:var(--text);margin-bottom:8px;}
+  .welcome p{font-size:14px;max-width:440px;line-height:1.6;}
+
+  /* Capability header */
+  .cap-header{padding:20px 28px 16px;border-bottom:1px solid var(--border);
+              background:var(--surface);flex-shrink:0;}
+  .cap-header-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px;}
+  .cap-header h1{font-size:20px;font-weight:600;}
+  .cap-header .desc{font-size:13px;color:var(--text2);line-height:1.5;margin-top:4px;}
+  .badges{display:flex;gap:6px;flex-wrap:wrap;}
+  .badge{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;}
+  .badge.asil-b{background:#f8514920;color:var(--orange);border:1px solid #f8514940;}
+  .badge.asil-d{background:#f8514930;color:#ff7b72;border:1px solid #f8514950;}
+  .badge.qm{background:#3fb95018;color:var(--green);border:1px solid #3fb95035;}
+  .badge.ver{background:#58a6ff18;color:var(--accent);border:1px solid #58a6ff35;}
+  .badge.domain{background:#bc8cff18;color:var(--purple);border:1px solid #bc8cff35;}
+  .badge.has-model{background:#f0883e18;color:var(--orange);border:1px solid #f0883e35;}
+
+  /* Sub-navigation */
+  .subnav{display:flex;border-bottom:1px solid var(--border);
+          background:var(--surface);flex-shrink:0;}
+  .subnav-tab{padding:10px 20px;cursor:pointer;font-size:13px;font-weight:500;
+              color:var(--text2);border-bottom:2px solid transparent;transition:all 0.15s;}
+  .subnav-tab:hover{color:var(--text);}
+  .subnav-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+  /* Content panes */
+  .pane{padding:24px 28px;display:none;}
+  .pane.active{display:block;}
+
+  /* ── API Reference pane ─────────────────────────────────── */
+  .section-title{font-size:13px;font-weight:600;color:var(--text2);
+                 text-transform:uppercase;letter-spacing:0.6px;margin-bottom:14px;}
+
+  .op-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;
+           margin-bottom:16px;overflow:hidden;}
+  .op-card-header{padding:14px 18px;display:flex;align-items:center;gap:12px;
+                  cursor:pointer;background:var(--surface2);}
+  .op-card-header h3{font-size:15px;font-weight:600;font-family:'SF Mono',Consolas,monospace;}
+  .op-card-header .op-badges{display:flex;gap:6px;margin-left:auto;flex-shrink:0;}
+  .op-card-body{padding:18px;border-top:1px solid var(--border);}
+
+  .schema-section{margin-bottom:18px;}
+  .schema-section-title{font-size:12px;font-weight:600;color:var(--text3);
+                         text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;}
+  .schema-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .schema-table th{padding:6px 10px;text-align:left;color:var(--text3);font-weight:500;
+                   border-bottom:1px solid var(--border);}
+  .schema-table td{padding:7px 10px;border-bottom:1px solid var(--border);}
+  .schema-table tr:last-child td{border-bottom:none;}
+  .schema-table td code{background:var(--surface3);padding:1px 5px;border-radius:3px;
+                         font-size:11px;font-family:'SF Mono',Consolas,monospace;}
+  .schema-table td.field-name{font-family:'SF Mono',Consolas,monospace;
+                               font-size:12px;color:var(--accent);}
+  .schema-table td.required{color:var(--red);font-size:11px;font-weight:600;}
+  .schema-table td.optional{color:var(--text3);font-size:11px;}
+
+  .pipeline-row{display:flex;align-items:center;gap:4px;margin-top:14px;flex-wrap:wrap;}
+  .pipeline-step{background:var(--surface3);border:1px solid var(--border);border-radius:4px;
+                  padding:3px 10px;font-size:11px;font-weight:500;color:var(--text2);}
+  .pipeline-step.active{background:rgba(88,166,255,0.15);color:var(--accent);
+                          border-color:rgba(88,166,255,0.3);}
+  .pipeline-arrow{color:var(--text3);font-size:12px;}
+
+  .try-btn{margin-top:14px;background:var(--surface3);border:1px solid var(--border);
+           color:var(--text2);padding:6px 14px;border-radius:6px;cursor:pointer;
+           font-size:12px;transition:all 0.15s;}
+  .try-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+  /* ── Playground pane ────────────────────────────────────── */
+  .playground-layout{display:grid;grid-template-columns:320px 1fr;gap:20px;
+                      align-items:start;}
+  @media(max-width:900px){.playground-layout{grid-template-columns:1fr;}}
+
+  .playground-form-panel{background:var(--surface);border:1px solid var(--border);
+                          border-radius:8px;overflow:hidden;}
+  .form-panel-header{padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
+  .form-panel-header h3{font-size:13px;font-weight:600;}
+  .form-body{padding:16px;}
+
+  .form-group{margin-bottom:14px;}
+  .form-group label{display:block;font-size:12px;color:var(--text2);margin-bottom:5px;font-weight:500;}
+  .form-group select, .form-group input[type="number"], .form-group input[type="text"]{
+    width:100%;background:var(--surface2);border:1px solid var(--border);
+    color:var(--text);padding:7px 10px;border-radius:5px;font-size:13px;outline:none;}
+  .form-group select:focus, .form-group input:focus{border-color:var(--accent);}
+  .range-row{display:flex;align-items:center;gap:8px;}
+  .range-row input[type="range"]{flex:1;-webkit-appearance:none;height:4px;
+    border-radius:2px;background:var(--surface3);outline:none;}
+  .range-row input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;
+    width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer;}
+  .range-val{font-size:12px;color:var(--text2);min-width:40px;text-align:right;}
+
+  .form-divider{height:1px;background:var(--border);margin:16px 0;}
+
+  .run-btns{display:flex;flex-direction:column;gap:8px;}
+  .run-btn{width:100%;padding:9px 16px;border-radius:6px;cursor:pointer;
+           font-size:13px;font-weight:500;border:none;transition:all 0.15s;}
+  .run-btn.primary{background:var(--accent);color:#fff;}
+  .run-btn.primary:hover{opacity:0.88;}
+  .run-btn.secondary{background:var(--surface3);color:var(--orange);
+                      border:1px solid rgba(240,136,62,0.3);}
+  .run-btn.secondary:hover{border-color:var(--orange);background:rgba(240,136,62,0.1);}
+  .run-btn:disabled{opacity:0.4;cursor:not-allowed;}
+
+  /* Output panel */
+  .output-panel{display:flex;flex-direction:column;gap:16px;}
+
+  .output-section{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+  .output-header{padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border);
+                  display:flex;align-items:center;gap:8px;}
+  .output-header h4{font-size:12px;font-weight:600;color:var(--text2);}
+  .output-header .status-badge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;}
+  .status-badge.ok{background:#3fb95020;color:var(--green);border:1px solid #3fb95040;}
+  .status-badge.err{background:#f8514920;color:var(--red);border:1px solid #f8514940;}
+  .status-badge.pending{background:#58a6ff18;color:var(--accent);border:1px solid #58a6ff30;}
+  .output-body{padding:14px;}
+
+  .json-box{font-family:'SF Mono',Consolas,monospace;font-size:12px;line-height:1.6;
+             white-space:pre-wrap;color:var(--text2);max-height:260px;overflow-y:auto;}
+
+  /* Physics chart */
+  .chart-area{position:relative;}
+  .chart-canvas{width:100%;height:200px;display:block;}
+  .chart-legend{display:flex;gap:20px;padding:8px 0 0;font-size:11px;color:var(--text2);}
+  .chart-legend span{display:flex;align-items:center;gap:5px;}
+  .chart-legend .dot{width:10px;height:3px;border-radius:2px;}
+  .chart-meta{display:flex;gap:16px;padding:10px 0 0;font-size:12px;color:var(--text2);flex-wrap:wrap;}
+  .chart-meta strong{color:var(--text);}
+
+  /* KPI tiles */
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+            gap:8px;padding:12px 0 0;}
+  .kpi-tile{background:var(--surface3);border:1px solid var(--border);border-radius:6px;
+            padding:8px 10px;}
+  .kpi-tile .k-label{font-size:10px;text-transform:uppercase;letter-spacing:.04em;
+                     color:var(--text3);}
+  .kpi-tile .k-value{font-size:16px;font-weight:600;color:var(--text);margin-top:2px;}
+  .kpi-tile .k-unit{font-size:11px;color:var(--text2);margin-left:3px;font-weight:400;}
+
+  /* 3D window viewport */
+  .window3d-wrap{position:relative;margin-top:12px;border:1px solid var(--border);
+                 border-radius:8px;overflow:hidden;background:
+                 radial-gradient(circle at 50% 35%, #1b2230 0%, #0d1117 80%);}
+  .window3d-canvas{width:100%;height:260px;display:block;cursor:grab;}
+  .window3d-canvas:active{cursor:grabbing;}
+  .window3d-label{position:absolute;top:8px;left:10px;font-size:11px;
+                  color:var(--text2);pointer-events:none;}
+  .window3d-label strong{color:var(--text);}
+  .window3d-hint{position:absolute;bottom:8px;right:10px;font-size:10px;
+                 color:var(--text3);pointer-events:none;}
+  .window3d-err{padding:24px;text-align:center;color:var(--text3);font-size:12px;}
+  .window3d-collision{position:absolute;top:8px;right:10px;max-width:62%;
+                      background:rgba(248,81,73,0.92);color:#fff;font-size:11px;
+                      font-weight:600;padding:5px 9px;border-radius:5px;
+                      pointer-events:none;text-align:right;}
+
+  .empty-output{padding:32px;text-align:center;color:var(--text3);font-size:13px;}
+
+  /* VSS paths */
+  .vss-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .vss-path{background:var(--surface3);border:1px solid var(--border);border-radius:4px;
+             padding:2px 8px;font-size:11px;font-family:'SF Mono',Consolas,monospace;color:var(--text2);}
+
+  /* Scrollbar */
+  ::-webkit-scrollbar{width:6px;height:6px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <h1>🚗 SDV Capability Architecture</h1>
+  <span class="sep">/</span>
+  <span class="page-title">API Explorer</span>
+  <div class="nav">
+    <a href="/vehicle/catalog/">Catalog</a>
+    <a href="/vehicle/api-explorer/" class="active">API Explorer</a>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- ══ Sidebar: Domain Browser ══════════════════════════════ -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2>Domain Browser</h2>
+    </div>
+    <div class="sidebar-body" id="sidebarBody">
+      <div style="padding:16px;color:var(--text3);font-size:13px;">Loading…</div>
+    </div>
+  </div>
+
+  <!-- ══ Main panel ══════════════════════════════════════════ -->
+  <div class="main" id="mainPanel">
+    <div class="welcome" id="welcomeState">
+      <div class="big-icon">🔬</div>
+      <h2>API Explorer</h2>
+      <p>Select a capability from the domain browser on the left to view its
+         northbound API specification and run commands in the interactive playground.</p>
+    </div>
+
+    <!-- Capability detail (hidden until selection) -->
+    <div id="capDetail" style="display:none;">
+      <div class="cap-header">
+        <div class="cap-header-top">
+          <div style="flex:1">
+            <h1 id="capTitle">—</h1>
+            <div class="desc" id="capDesc">—</div>
+          </div>
+          <div class="badges" id="capBadges"></div>
+        </div>
+      </div>
+
+      <div class="subnav">
+        <div class="subnav-tab active" data-pane="api-ref">📋 API Reference</div>
+        <div class="subnav-tab" data-pane="playground">▶ Playground</div>
+      </div>
+
+      <!-- API Reference pane -->
+      <div class="pane active" id="pane-api-ref">
+        <div class="section-title">Northbound Operations</div>
+        <div id="opCards"></div>
+
+        <div class="section-title" style="margin-top:24px;">Southbound Dependencies</div>
+        <div id="sbDeps"></div>
+      </div>
+
+      <!-- Playground pane -->
+      <div class="pane" id="pane-playground">
+        <div class="playground-layout">
+          <!-- Left: form -->
+          <div class="playground-form-panel">
+            <div class="form-panel-header">
+              <h3>Command Parameters</h3>
+            </div>
+            <div class="form-body">
+              <div class="form-group">
+                <label>Operation</label>
+                <select id="pgOperation" onchange="onOperationChange()"></select>
+              </div>
+              <div class="form-group">
+                <label>Caller Source</label>
+                <select id="pgSource" disabled title="Set by northbound HTTP adapter from its configured role (BR-014)">
+                  <option value="DRIVER" selected>DRIVER (configured role)</option>
+                </select>
+                <div class="field-hint" style="font-size:10px;color:#8b949e;margin-top:2px;">Resolved by adapter role (BR-014)</div>
+              </div>
+              <div class="form-divider"></div>
+              <div id="pgDynamicFields"></div>
+              <div class="form-divider"></div>
+              <div class="run-btns">
+                <button class="run-btn primary" id="btnRunApi" onclick="runApiCommand()">▶ Run API Command</button>
+                <button class="run-btn secondary" id="btnSimulate" onclick="runPhysicsSimulation()"
+                        style="display:none;">⚡ Simulate Physics Model</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: output -->
+          <div class="output-panel">
+            <!-- API Response -->
+            <div class="output-section" id="apiResponseSection">
+              <div class="output-header">
+                <h4>API Response</h4>
+                <span class="status-badge pending" id="apiStatusBadge">ready</span>
+              </div>
+              <div class="output-body">
+                <div class="empty-output" id="apiEmptyState">
+                  Hit <strong>Run API Command</strong> to execute the command through the<br>
+                  five-phase pipeline (Arbitrate → Precondition → Safety → Actuator → Publish).
+                </div>
+                <div class="json-box" id="apiJsonBox" style="display:none;"></div>
+              </div>
+            </div>
+
+            <!-- Physics Simulation -->
+            <div class="output-section" id="physicsSection" style="display:none;">
+              <div class="output-header">
+                <h4>Physics Simulation</h4>
+                <span class="status-badge pending" id="physStatusBadge">ready</span>
+              </div>
+              <div class="output-body">
+                <div class="empty-output" id="physEmptyState">
+                  Hit <strong>Simulate Physics Model</strong> to see the BOND graph<br>
+                  transfer function trajectory for this command.
+                </div>
+                <div class="chart-area" id="chartArea" style="display:none;">
+                  <canvas class="chart-canvas" id="physChart"></canvas>
+                  <div class="chart-legend">
+                    <span><span class="dot" style="background:#58a6ff;"></span> Position (mm)</span>
+                    <span><span class="dot" style="background:#3fb950;"></span> |Velocity| (mm/s)</span>
+                    <span><span class="dot" style="background:#f0883e;"></span> |Force| (N)</span>
+                  </div>
+                  <div class="chart-meta" id="chartMeta"></div>
+                  <div class="kpi-grid" id="kpiGrid"></div>
+                  <!-- 3D window viewport (window capability only) -->
+                  <div class="window3d-wrap" id="window3dWrap" style="display:none;">
+                    <canvas class="window3d-canvas" id="window3dCanvas"></canvas>
+                    <div class="window3d-label" id="window3dLabel">3D View — <strong>—</strong></div>
+                    <div class="window3d-hint">drag to orbit</div>
+                    <div class="window3d-collision" id="scene3dCollision" style="display:none;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ════════════════════════════════════════════════════════════
+// Static schema definitions — field-level detail for each operation
+// ════════════════════════════════════════════════════════════
+const SCHEMAS = {
+  window: {
+    moveWindow: {
+      command: [
+        { name:'zone', type:'WindowZone', req:true,  desc:'Target window zone (DRIVER_FRONT / PASSENGER_FRONT / DRIVER_REAR / PASSENGER_REAR)' },
+        { name:'target_pct', type:'float [0–100]', req:true, desc:'0.0 = fully open, 100.0 = fully closed' },
+        { name:'source', type:'RequestSource', req:true, desc:'Caller identity — set by northbound adapter after credential check, never self-asserted (BR-014)' },
+        { name:'request_id', type:'str (UUID)', req:false, desc:'Unique request ID — auto-generated if omitted' },
+        { name:'timeout_s', type:'float', req:false, desc:'Request timeout — default 30.0 s, triggers safe state on expiry (BR-016)' },
+      ],
+      response: [
+        { name:'status', type:'WindowStatus', req:true, desc:'MOVING | INHIBITED | REJECTED | AT_LIMIT' },
+        { name:'position_pct', type:'float', req:true, desc:'Current window position as percentage' },
+        { name:'zone', type:'WindowZone', req:true, desc:'Zone this response is for' },
+        { name:'reason', type:'WindowInhibitReason | None', req:true, desc:'Typed enum reason if inhibited or rejected (NB-3)' },
+        { name:'retry_after_s', type:'float | None', req:true, desc:'Suggested retry delay when inhibited (NB-4)' },
+        { name:'winning_source', type:'RequestSource | None', req:true, desc:'Source currently holding the lock' },
+        { name:'request_id', type:'str', req:true, desc:'Echoed from the command (NB-4)' },
+        { name:'api_version', type:'str', req:true, desc:'Semver API version constant (NB-4, BR-013)' },
+      ],
+      pipeline: ['ARBITRATE','PRECONDITION','SAFETY','ACTUATOR','PUBLISH'],
+    },
+    releaseWindow: {
+      command: [
+        { name:'request_id', type:'str', req:true, desc:'request_id from the original move command to release' },
+      ],
+      response: [
+        { name:'(none)', type:'—', req:false, desc:'Lock released; no response body' },
+      ],
+      pipeline: [],
+    },
+    can_execute: {
+      command: [
+        { name:'(same as moveWindow)', type:'MoveWindowCommand', req:true, desc:'Runs Arbitrate + Precondition + Safety with zero side effects (BR-012)' },
+      ],
+      response: [
+        { name:'ok', type:'bool', req:true, desc:'True if the command would be accepted' },
+        { name:'reason', type:'WindowInhibitReason | None', req:true, desc:'Reason for rejection if ok=False' },
+      ],
+      pipeline: ['ARBITRATE','PRECONDITION','SAFETY'],
+    },
+  },
+  seating: {
+    moveSeat: {
+      command: [
+        { name:'source', type:'RequestSource', req:true, desc:'Caller identity — set by northbound adapter (BR-014)' },
+        { name:'direction', type:'str FORWARD|REARWARD', req:false, desc:'Step direction (ignored when target_mm is set)' },
+        { name:'steps', type:'int [1–15]', req:false, desc:'Number of 10mm steps (ignored when target_mm is set)' },
+        { name:'target_mm', type:'int [250–400]', req:false, desc:'Absolute target position; takes priority over direction+steps' },
+      ],
+      response: [
+        { name:'status', type:'SeatStatus', req:true, desc:'MOVING | INHIBITED | REJECTED | AT_LIMIT' },
+        { name:'position_mm', type:'int', req:true, desc:'Current seat position in mm' },
+        { name:'winning_source', type:'RequestSource | None', req:true, desc:'Source holding the seat lock' },
+        { name:'reason', type:'SeatInhibitReason | None', req:true, desc:'Typed inhibit reason (BR-002)' },
+        { name:'retry_after_s', type:'float | None', req:true, desc:'Retry hint in seconds (NB-4)' },
+        { name:'request_id', type:'str', req:true, desc:'Echoed request ID (NB-4)' },
+        { name:'api_version', type:'str', req:true, desc:'Capability API version (BR-013)' },
+      ],
+      pipeline: ['ARBITRATE','PRECONDITION','SAFETY','ACTUATOR','PUBLISH'],
+    },
+    releaseSeat: {
+      command: [
+        { name:'request_id', type:'str', req:true, desc:'request_id to release' },
+      ],
+      response: [
+        { name:'(none)', type:'—', req:false, desc:'Lock released' },
+      ],
+      pipeline: [],
+    },
+  },
+  climate: {
+    setClimate: {
+      command: [
+        { name:'source', type:'RequestSource', req:true, desc:'Caller identity' },
+        { name:'target_temp_c', type:'float [16–30]', req:true, desc:'Target cabin temperature in °C' },
+        { name:'fan_speed', type:'int [0–10]', req:true, desc:'Fan speed level (0=off, 10=max)' },
+        { name:'zone', type:'ClimateZone FRONT|REAR|ALL', req:true, desc:'HVAC zone to control' },
+      ],
+      response: [
+        { name:'status', type:'ClimateStatus', req:true, desc:'ACTIVE | INHIBITED | REJECTED' },
+        { name:'current_temp_c', type:'float', req:true, desc:'Current measured temperature' },
+        { name:'fan_speed', type:'int', req:true, desc:'Applied fan speed' },
+        { name:'zone', type:'ClimateZone', req:true, desc:'Controlled zone' },
+        { name:'winning_source', type:'RequestSource | None', req:true, desc:'Source holding climate lock' },
+        { name:'reason', type:'ClimateInhibitReason | None', req:true, desc:'Typed inhibit reason (BR-002)' },
+        { name:'retry_after_s', type:'float | None', req:true, desc:'Retry hint in seconds (NB-4)' },
+        { name:'request_id', type:'str', req:true, desc:'Echoed request ID (NB-4)' },
+        { name:'api_version', type:'str', req:true, desc:'Capability API version (BR-013)' },
+      ],
+      pipeline: ['ARBITRATE','PRECONDITION','SAFETY','ACTUATOR','PUBLISH'],
+    },
+  },
+  lighting: {
+    setLights: {
+      command: [
+        { name:'source', type:'RequestSource', req:true, desc:'Caller identity' },
+        { name:'zone', type:'LightZone AMBIENT|CABIN|READING|ALL', req:true, desc:'Lighting zone' },
+        { name:'level', type:'int [0–100]', req:true, desc:'Brightness level (0=off, 100=max)' },
+        { name:'colour', type:'str', req:false, desc:'Colour name or hex (e.g. WHITE, WARM, #FF8800)' },
+      ],
+      response: [
+        { name:'status', type:'LightStatus', req:true, desc:'ACTIVE | INHIBITED | REJECTED' },
+        { name:'zone', type:'LightZone', req:true, desc:'Zone controlled' },
+        { name:'level', type:'int', req:true, desc:'Applied level' },
+        { name:'colour', type:'str', req:true, desc:'Applied colour' },
+        { name:'winning_source', type:'RequestSource | None', req:true, desc:'Lock holder' },
+        { name:'reason', type:'LightInhibitReason | None', req:true, desc:'Typed inhibit reason (BR-002)' },
+        { name:'retry_after_s', type:'float | None', req:true, desc:'Retry hint in seconds (NB-4)' },
+        { name:'request_id', type:'str', req:true, desc:'Echoed request ID (NB-4)' },
+        { name:'api_version', type:'str', req:true, desc:'Capability API version (BR-013)' },
+      ],
+      pipeline: ['ARBITRATE','PRECONDITION','SAFETY','ACTUATOR','PUBLISH'],
+    },
+  },
+};
+
+// ════════════════════════════════════════════════════════════
+// Playground operation → form field definitions + endpoint
+// ════════════════════════════════════════════════════════════
+const PLAYGROUND = {
+  window: {
+    moveWindow: {
+      endpoint: '/vehicle/window/move',
+      method: 'POST',
+      hasPhysics: true,
+      physCapability: 'window',
+      fields: [
+        { id:'zone', label:'Zone', type:'select',
+          options:['DRIVER_FRONT','PASSENGER_FRONT','DRIVER_REAR','PASSENGER_REAR'] },
+        { id:'from_pct', label:'Start position (simulation)', type:'range', min:0, max:100, value:0,
+          unit:'%', hint:'where the glass begins  ·  0% = fully open  ·  100% = fully closed' },
+        { id:'target_pct', label:'Target position', type:'range', min:0, max:100, value:100,
+          unit:'%', hint:'0% = fully open  ·  100% = fully closed' },
+      ],
+      buildBody: (f) => ({ zone: f.zone, target_pct: Number(f.target_pct) }),
+      // Direction is chosen explicitly via Start vs Target so both raising
+      // (closing, glass goes up) and lowering (opening, glass goes down) can
+      // be exercised deliberately. 0% = fully open (0 mm), 100% = fully closed
+      // (300 mm); closing increases mm, opening decreases it.
+      toSimParams: (f) => ({
+        capability: 'window',
+        from_mm:   Number(f.from_pct)   / 100 * 300,
+        target_mm: Number(f.target_pct) / 100 * 300,
+      }),
+    },
+    releaseWindow: {
+      endpoint: '/vehicle/window/release',
+      method: 'POST',
+      hasPhysics: false,
+      fields: [
+        { id:'request_id', label:'Request ID to release', type:'text', value:'', placeholder:'UUID from move response' },
+      ],
+      buildBody: (f) => ({ request_id: f.request_id }),
+    },
+  },
+  seating: {
+    moveSeat: {
+      endpoint: '/vehicle/seat/move_to',
+      method: 'POST',
+      hasPhysics: true,
+      physCapability: 'seating',
+      fields: [
+        { id:'row', label:'Row', type:'select',
+          options:['Row 1 (front)','Row 2 (middle)','Row 3 (bench)'] },
+        { id:'seat', label:'Seat in row', type:'select',
+          options:['Driver side','Passenger side'] },
+        { id:'target_mm', label:'Target position', type:'range', min:250, max:400, value:325,
+          unit:'mm', hint:'250 mm = rearmost  ·  400 mm = foremost  ·  blocked seats collide with neighbours' },
+      ],
+      buildBody: (f) => ({ target_mm: Number(f.target_mm) }),
+      toSimParams: (f) => ({ capability:'seating', target_mm: Number(f.target_mm), from_mm:250 }),
+    },
+    releaseSeat: {
+      endpoint: '/vehicle/seat/release',
+      method: 'POST',
+      hasPhysics: false,
+      fields: [
+        { id:'request_id', label:'Request ID to release', type:'text', value:'', placeholder:'UUID from move response' },
+      ],
+      buildBody: (f) => ({ request_id: f.request_id }),
+    },
+  },
+  climate: {
+    setClimate: {
+      endpoint: '/vehicle/climate/set',
+      method: 'POST',
+      hasPhysics: false,
+      fields: [
+        { id:'temp_c', label:'Target temp (°C)', type:'range', min:16, max:30, value:22, unit:'°C' },
+        { id:'fan_speed', label:'Fan speed', type:'range', min:0, max:10, value:3, unit:'' },
+        { id:'zone', label:'Zone', type:'select', options:['FRONT','REAR','ALL'] },
+      ],
+      buildBody: (f) => ({ temp_c:Number(f.temp_c), fan_speed:Number(f.fan_speed), zone:f.zone }),
+    },
+  },
+  lighting: {
+    setLights: {
+      endpoint: '/vehicle/lights/set',
+      method: 'POST',
+      hasPhysics: false,
+      fields: [
+        { id:'zone', label:'Zone', type:'select', options:['AMBIENT','CABIN','READING','ALL'] },
+        { id:'level', label:'Brightness', type:'range', min:0, max:100, value:70, unit:'%' },
+        { id:'colour', label:'Colour', type:'text', value:'WHITE', placeholder:'WHITE, WARM, #FF8800…' },
+      ],
+      buildBody: (f) => ({ zone:f.zone, level:Number(f.level), colour:f.colour }),
+    },
+  },
+  recline_seat: {
+    reclineSeat: {
+      endpoint: '/vehicle/body/recline_seat/actuate',
+      method: 'POST',
+      hasPhysics: false,
+      fields: [
+        { id:'zone', label:'Seat', type:'select',
+          options:['ROW1_DRIVER','ROW1_PASSENGER','ROW2_DRIVER','ROW2_MIDDLE','ROW2_PASSENGER',
+                   'ROW3_DRIVER','ROW3_MIDDLE','ROW3_PASSENGER'] },
+        { id:'setpoint', label:'Recline', type:'range', min:0, max:45, value:30, unit:'°',
+          hint:'degrees from vertical  ·  0° = upright  ·  45° = limit  ·  parked only for now' },
+      ],
+      buildBody: (f) => ({ zone: f.zone, setpoint: Number(f.setpoint) }),
+    },
+    release: {
+      endpoint: '/vehicle/body/recline_seat/release',
+      method: 'POST',
+      hasPhysics: false,
+      fields: [
+        { id:'request_id', label:'Request ID to release', type:'text', value:'', placeholder:'UUID from the recline response' },
+      ],
+      buildBody: (f) => ({ request_id: f.request_id }),
+    },
+  },
+  set_seat_massage: {
+    setSeatMassage: {
+      endpoint: '/vehicle/seat-massage/set',
+      method: 'POST',
+      hasPhysics: false,
+      fields: [
+        { id:'seat', label:'Seat', type:'select',
+          options:['ROW1_DRIVER','ROW1_PASSENGER','ROW2_DRIVER','ROW2_MIDDLE','ROW2_PASSENGER',
+                   'ROW3_DRIVER','ROW3_MIDDLE','ROW3_PASSENGER'] },
+        { id:'active', label:'Massage', type:'select', options:['on','off'] },
+        { id:'pattern', label:'Pattern', type:'select',
+          options:["seat's last-used",'LOWER_ROLLING','UPPER_ROLLING','CIRCULAR_CUSHION','FULL_RECOVERY','RELAXED_RECOVERY'] },
+        { id:'intensity', label:'Intensity', type:'select', options:["seat's last-used",'LOW','MEDIUM','HIGH'] },
+      ],
+      buildBody: (f) => ({
+        seat: f.seat,
+        active: f.active === 'on',
+        pattern: f.pattern.startsWith('seat') ? null : f.pattern,
+        intensity: f.intensity.startsWith('seat') ? null : f.intensity,
+      }),
+    },
+    releaseSeatMassage: {
+      endpoint: '/vehicle/seat-massage/release',
+      method: 'POST',
+      hasPhysics: false,
+      fields: [
+        { id:'request_id', label:'Request ID to release', type:'text', value:'', placeholder:'UUID from the massage response' },
+      ],
+      buildBody: (f) => ({ request_id: f.request_id }),
+    },
+  },
+};
+
+// ════════════════════════════════════════════════════════════
+// State
+// ════════════════════════════════════════════════════════════
+let catalogData = {};
+let packagesData = [];
+let activeCap = null;
+let activePane = 'api-ref';
+let physicsPlaybackToken = 0;
+
+// ════════════════════════════════════════════════════════════
+// Initialisation
+// ════════════════════════════════════════════════════════════
+async function init() {
+  const [capResp, pkgResp] = await Promise.all([
+    fetch('/vehicle/catalog/data'),
+    fetch('/vehicle/catalog/packages'),
+  ]);
+  catalogData = await capResp.json();
+  packagesData = (await pkgResp.json()).packages || [];
+  buildSidebar();
+
+  // Subnav tab switching
+  document.querySelectorAll('.subnav-tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.subnav-tab').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('.pane').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      activePane = t.dataset.pane;
+      document.getElementById('pane-' + activePane).classList.add('active');
+    });
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// Sidebar — hierarchical package navigation (vehicle.body.<pkg>.<cap>)
+// ════════════════════════════════════════════════════════════
+function buildSidebar() {
+  const icons = { window:'🪟', seating:'🪑', climate:'❄️', lighting:'💡' };
+  const asilClass = a => a === 'ASIL_B' ? 'b' : a === 'ASIL_D' ? 'd' : 'qm';
+
+  let html = '<div class="nav-root">📦 vehicle.body</div>';
+  for (const pkg of packagesData) {
+    const caps = pkg.capabilities || [];
+    html += `<div class="pkg-group" id="pkg-${pkg.name}">
+      <div class="pkg-header" onclick="togglePkg('${pkg.name}')">
+        <span class="chev">▼</span>
+        <span>${pkg.icon || '📁'}</span>
+        <span>${pkg.display_name}</span>
+        <span class="pkg-count">${caps.length}</span>
+      </div>
+      <div class="pkg-items">`;
+    for (const c of caps) {
+      const ac = asilClass(c.asil_tier || 'QM');
+      html += `<div class="cap-item" id="sidebar-${c.name}" onclick="selectCap('${c.name}')">
+        <span class="cap-icon">${icons[c.name] || '⚙️'}</span>
+        <span class="cap-name">${c.display_name}</span>
+        ${c.generic ? '<span class="gen-badge">generic</span>' : ''}
+        <span class="asil-dot ${ac}" title="${c.asil_tier || 'QM'}"></span>
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+  document.getElementById('sidebarBody').innerHTML = html;
+}
+
+function togglePkg(name) {
+  document.getElementById('pkg-' + name).classList.toggle('collapsed');
+}
+
+// ════════════════════════════════════════════════════════════
+// Capability selection
+// ════════════════════════════════════════════════════════════
+function selectCap(key) {
+  // Update sidebar active state
+  document.querySelectorAll('.cap-item').forEach(x => x.classList.remove('active'));
+  const sidebarItem = document.getElementById('sidebar-' + key);
+  if (sidebarItem) sidebarItem.classList.add('active');
+
+  activeCap = key;
+  const cap = catalogData[key];
+  const d = cap.descriptor;
+
+  // Show detail panel
+  document.getElementById('welcomeState').style.display = 'none';
+  document.getElementById('capDetail').style.display = '';
+
+  // Header
+  document.getElementById('capTitle').textContent = d.display_name || d.name;
+  document.getElementById('capDesc').textContent = d.description || '';
+
+  const asilStr = (d.asil_tier || 'QM').replace('_', '-');
+  const asilClass = asilStr.toLowerCase().replace('-', '-');
+  const hasModel = cap.system_model && Object.keys(cap.system_model).length > 0;
+  document.getElementById('capBadges').innerHTML = `
+    <span class="badge ${asilClass}">${asilStr}</span>
+    <span class="badge ver">v${d.api_version || '1.0.0'}</span>
+    <span class="badge domain">${d.domain || 'body'}</span>
+    ${hasModel ? '<span class="badge has-model">⚡ physics model</span>' : ''}`;
+
+  // Reset to API ref tab
+  document.querySelectorAll('.subnav-tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.pane').forEach(x => x.classList.remove('active'));
+  document.querySelector('[data-pane="api-ref"]').classList.add('active');
+  document.getElementById('pane-api-ref').classList.add('active');
+  activePane = 'api-ref';
+
+  renderApiRef(key, cap);
+  renderPlayground(key, cap);
+}
+
+// ════════════════════════════════════════════════════════════
+// API Reference
+// ════════════════════════════════════════════════════════════
+function renderApiRef(key, cap) {
+  const ops = cap.operations || [];
+  const schemas = SCHEMAS[key] || {};
+
+  let html = '';
+  for (const op of ops) {
+    const schema = schemas[op.name] || {};
+    const cmdFields = schema.command || [];
+    const respFields = schema.response || [];
+    const pipeline = schema.pipeline || [];
+
+    const asyncBadge = op.is_async
+      ? `<span class="badge" style="background:#58a6ff18;color:var(--accent);border:1px solid #58a6ff30;font-size:11px;">async</span>`
+      : `<span class="badge" style="background:#3fb95018;color:var(--green);border:1px solid #3fb95030;font-size:11px;">sync</span>`;
+    const arbBadge = op.requires_arbitration
+      ? `<span class="badge" style="background:#f0883e18;color:var(--orange);border:1px solid #f0883e30;font-size:11px;">arbitrated</span>`
+      : '';
+
+    html += `<div class="op-card">
+      <div class="op-card-header">
+        <h3>${op.name}</h3>
+        <div class="op-badges">${asyncBadge}${arbBadge}</div>
+      </div>
+      <div class="op-card-body">
+        <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">${op.description || ''}</p>
+
+        <div class="schema-section">
+          <div class="schema-section-title">Command: <code style="font-size:11px;background:var(--surface3);padding:1px 6px;border-radius:3px;">${op.command_type}</code></div>
+          ${cmdFields.length ? `
+          <table class="schema-table">
+            <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>${cmdFields.map(f => `<tr>
+              <td class="field-name">${f.name}</td>
+              <td><code>${f.type}</code></td>
+              <td class="${f.req ? 'required' : 'optional'}">${f.req ? 'required' : 'optional'}</td>
+              <td>${f.desc}</td>
+            </tr>`).join('')}</tbody>
+          </table>` : '<p style="color:var(--text3);font-size:12px;">No fields defined.</p>'}
+        </div>
+
+        <div class="schema-section">
+          <div class="schema-section-title">Response: <code style="font-size:11px;background:var(--surface3);padding:1px 6px;border-radius:3px;">${op.response_type}</code></div>
+          ${respFields.length ? `
+          <table class="schema-table">
+            <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+            <tbody>${respFields.map(f => `<tr>
+              <td class="field-name">${f.name}</td>
+              <td><code>${f.type}</code></td>
+              <td>${f.desc}</td>
+            </tr>`).join('')}</tbody>
+          </table>` : '<p style="color:var(--text3);font-size:12px;">—</p>'}
+        </div>
+
+        ${pipeline.length ? `
+        <div class="schema-section" style="margin-bottom:0;">
+          <div class="schema-section-title">Execution pipeline</div>
+          <div class="pipeline-row">
+            ${pipeline.map((s,i) => `
+              <span class="pipeline-step active">${s}</span>
+              ${i < pipeline.length-1 ? '<span class="pipeline-arrow">→</span>' : ''}
+            `).join('')}
+          </div>
+        </div>` : ''}
+
+        ${(op.vss_paths||[]).length ? `
+        <div style="margin-top:14px;">
+          <div class="schema-section-title">VSS Paths</div>
+          <div class="vss-list">${(op.vss_paths||[]).map(p => `<span class="vss-path">${p}</span>`).join('')}</div>
+        </div>` : ''}
+
+        <button class="try-btn" onclick="openPlayground('${key}', '${op.name}')">
+          ▶ Try in Playground →
+        </button>
+      </div>
+    </div>`;
+  }
+  document.getElementById('opCards').innerHTML = html || '<p style="color:var(--text3)">No operations defined.</p>';
+
+  // Southbound dependencies
+  const sb = cap.descriptor?.southbound_dependencies || [];
+  const sbHtml = sb.length
+    ? sb.map(d => `<code style="background:var(--surface2);padding:3px 8px;border-radius:4px;font-size:12px;margin-right:6px;display:inline-block;margin-bottom:6px;border:1px solid var(--border);">${d}()</code>`).join('')
+    : '<p style="color:var(--text3);font-size:13px;">No southbound hardware dependencies (software-only capability).</p>';
+  document.getElementById('sbDeps').innerHTML = sbHtml;
+}
+
+// ════════════════════════════════════════════════════════════
+// Playground
+// ════════════════════════════════════════════════════════════
+function renderPlayground(key, cap) {
+  const pg = PLAYGROUND[key] || {};
+  const opSel = document.getElementById('pgOperation');
+  opSel.innerHTML = Object.keys(pg).map(opKey =>
+    `<option value="${opKey}">${opKey}</option>`
+  ).join('');
+  buildDynamicFields(key, Object.keys(pg)[0]);
+
+  // Reset outputs
+  showApiOutput(null, null);
+  showPhysicsOutput(null);
+}
+
+function openPlayground(key, opName) {
+  // Switch to playground tab
+  document.querySelectorAll('.subnav-tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.pane').forEach(x => x.classList.remove('active'));
+  document.querySelector('[data-pane="playground"]').classList.add('active');
+  document.getElementById('pane-playground').classList.add('active');
+  activePane = 'playground';
+
+  // Select the operation
+  document.getElementById('pgOperation').value = opName;
+  onOperationChange();
+  // Scroll into view
+  document.getElementById('pane-playground').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function onOperationChange() {
+  const key = activeCap;
+  const opKey = document.getElementById('pgOperation').value;
+  buildDynamicFields(key, opKey);
+  showApiOutput(null, null);
+  showPhysicsOutput(null);
+}
+
+function buildDynamicFields(key, opKey) {
+  const pg = PLAYGROUND[key] || {};
+  const op = pg[opKey];
+  if (!op) { document.getElementById('pgDynamicFields').innerHTML = ''; return; }
+
+  let html = '';
+  for (const f of op.fields || []) {
+    html += `<div class="form-group"><label>${f.label}</label>`;
+    if (f.type === 'select') {
+      html += `<select id="pgf_${f.id}" onchange="onFieldChange()">${f.options.map(o => `<option>${o}</option>`).join('')}</select>`;
+    } else if (f.type === 'range') {
+      html += `<div class="range-row">
+        <input type="range" id="pgf_${f.id}" min="${f.min}" max="${f.max}" value="${f.value}"
+               oninput="document.getElementById('pgf_${f.id}_val').textContent=this.value+'${f.unit||''}'">
+        <span class="range-val" id="pgf_${f.id}_val">${f.value}${f.unit||''}</span>
+      </div>
+      ${f.hint ? `<div style="font-size:11px;color:var(--text3);margin-top:3px;">${f.hint}</div>` : ''}`;
+    } else {
+      html += `<input type="${f.type === 'number' ? 'number' : 'text'}" id="pgf_${f.id}"
+                      value="${f.value||''}" placeholder="${f.placeholder||''}"
+                      ${f.min!==undefined?'min="'+f.min+'"':''} ${f.max!==undefined?'max="'+f.max+'"':''}>`;
+    }
+    html += '</div>';
+  }
+  document.getElementById('pgDynamicFields').innerHTML = html;
+
+  // Show/hide Simulate button
+  const simBtn = document.getElementById('btnSimulate');
+  simBtn.style.display = op.hasPhysics ? '' : 'none';
+  if (op.hasPhysics) {
+    document.getElementById('physicsSection').style.display = '';
+  } else {
+    document.getElementById('physicsSection').style.display = 'none';
+  }
+}
+
+// Re-highlight the chosen cabin seat when the Row/Seat selectors change.
+function onFieldChange() {
+  if (activeCap === 'seating') Scene3D.selectSeat(resolveSeatId());
+}
+
+function collectFields(key, opKey) {
+  const op = (PLAYGROUND[key] || {})[opKey];
+  if (!op) return {};
+  const result = {};
+  for (const f of op.fields || []) {
+    const el = document.getElementById('pgf_' + f.id);
+    result[f.id] = el ? el.value : '';
+  }
+  return result;
+}
+
+// ── Run API command ──────────────────────────────────────────
+async function runApiCommand() {
+  const key = activeCap;
+  const opKey = document.getElementById('pgOperation').value;
+  const src = document.getElementById('pgSource').value;
+  const op = (PLAYGROUND[key] || {})[opKey];
+  if (!op) return;
+
+  const fields = collectFields(key, opKey);
+  const body = op.buildBody(fields, src);
+  const pressedAtMs = Date.now();
+
+  // Start model playback from the same press event as API execution.
+  if (op.hasPhysics && op.toSimParams) {
+    runPhysicsSimulation({
+      key,
+      opKey,
+      fields,
+      syncToPressMs: pressedAtMs,
+    });
+  }
+
+  const badge = document.getElementById('apiStatusBadge');
+  badge.className = 'status-badge pending'; badge.textContent = 'running…';
+  document.getElementById('btnRunApi').disabled = true;
+
+  try {
+    const resp = await fetch(op.endpoint, {
+      method: op.method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const apiDoneMs = Date.now();
+    const data = await resp.json();
+    showApiOutput(data, resp.ok);
+    // Notify physics playback of API response arrival time
+    if (typeof window._registerApiResponseCapture === 'function') {
+      window._registerApiResponseCapture(apiDoneMs);
+      window._registerApiResponseCapture = null;
+    }
+  } catch(e) {
+    showApiOutput({ error: e.message }, false);
+  } finally {
+    document.getElementById('btnRunApi').disabled = false;
+  }
+}
+
+function showApiOutput(data, ok) {
+  const badge = document.getElementById('apiStatusBadge');
+  const emptyEl = document.getElementById('apiEmptyState');
+  const jsonEl = document.getElementById('apiJsonBox');
+
+  if (data === null) {
+    badge.className = 'status-badge pending'; badge.textContent = 'ready';
+    emptyEl.style.display = ''; jsonEl.style.display = 'none';
+    return;
+  }
+  badge.className = ok ? 'status-badge ok' : 'status-badge err';
+  badge.textContent = ok ? (data.status || 'ok') : 'error';
+  emptyEl.style.display = 'none';
+  jsonEl.style.display = '';
+  jsonEl.textContent = JSON.stringify(data, null, 2);
+}
+
+// ── Run physics simulation ───────────────────────────────────
+async function runPhysicsSimulation(options = {}) {
+  const key = options.key || activeCap;
+  const opKey = options.opKey || document.getElementById('pgOperation').value;
+  const op = (PLAYGROUND[key] || {})[opKey];
+  if (!op || !op.hasPhysics || !op.toSimParams) return;
+
+  const fields = options.fields || collectFields(key, opKey);
+  const simParams = op.toSimParams(fields);
+  const syncToPressMs = options.syncToPressMs || null;
+
+  const badge = document.getElementById('physStatusBadge');
+  badge.className = 'status-badge pending'; badge.textContent = 'simulating…';
+  document.getElementById('btnSimulate').disabled = true;
+
+  try {
+    const resp = await fetch('/vehicle/api-explorer/simulate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(simParams),
+    });
+    const data = await resp.json();
+    if (data.error) { badge.className = 'status-badge err'; badge.textContent = 'error'; return; }
+    showPhysicsOutput(data, {
+      animated: Boolean(syncToPressMs),
+      syncToPressMs,
+    });
+  } catch(e) {
+    badge.className = 'status-badge err'; badge.textContent = 'error';
+  } finally {
+    document.getElementById('btnSimulate').disabled = false;
+  }
+}
+
+function renderKpis(data) {
+  const grid = document.getElementById('kpiGrid');
+  if (!grid) return;
+  const k = data.kpis || {};
+  const dir = data.direction || null;
+  const tiles = [
+    { label: 'Move latency',     value: k.move_latency_s,   unit: 's'    },
+    { label: 'Peak current',     value: k.peak_current_a,   unit: 'A'    },
+    { label: 'RMS current',      value: k.rms_current_a,    unit: 'A'    },
+    { label: 'Avg current',      value: k.avg_current_a,    unit: 'A'    },
+    { label: 'Energy used',      value: k.energy_wh,        unit: 'Wh'   },
+    { label: 'Peak force',       value: k.peak_force_n,     unit: 'N'    },
+    { label: 'Avg velocity',     value: k.avg_velocity_mms, unit: 'mm/s' },
+    { label: 'Travel',           value: k.total_travel_mm,  unit: 'mm'   },
+  ];
+  let html = tiles.map(t => `
+    <div class="kpi-tile">
+      <div class="k-label">${t.label}</div>
+      <div class="k-value">${t.value == null ? '\u2014' : Number(t.value).toLocaleString(undefined,{maximumFractionDigits:3})}<span class="k-unit">${t.unit}</span></div>
+    </div>`).join('');
+  if (dir) {
+    html += `
+      <div class="kpi-tile" style="grid-column:1/-1;">
+        <div class="k-label">Direction \u00b7 gravity</div>
+        <div class="k-value" style="font-size:13px;">${dir.sense === 'up' ? '\u25b2' : '\u25bc'} ${dir.label} <span class="k-unit">gravity ${dir.gravity}</span></div>
+      </div>`;
+  }
+  grid.innerHTML = html;
+}
+
+// ════════════════════════════════════════════════════════════
+// Shared 3D viewport (Three.js) — renders either a window rig
+// (door + sliding glass) or a 3-row seat cabin (Row 1/2 captain's
+// chairs + Row 3 bench), driven by the live physics trajectory.
+//   window:  0 mm = fully open (glass retracted) .. 300 mm = closed
+//   seating: 250 mm = rearmost .. 400 mm = foremost; the selected
+//            seat slides fore/aft and is collision-checked against
+//            its cabin neighbours (ported from the seat simulator).
+// ════════════════════════════════════════════════════════════
+const Scene3D = (() => {
+  const RANGE = {
+    window:  { min: 0,   max: 300 },
+    seating: { min: 250, max: 400 },
+  };
+  const GLASS_T = 0.30;       // glass travel in scene units (≈ frame height)
+
+  // Seat cabin layout (scene units). z grows toward the front of the car
+  // (and the camera): Row 1 ahead, Row 3 at the back. Each seat slides
+  // fore/aft within SEAT_SLIDE; collisions are checked between seats that
+  // share a fore/aft track (same side, or the full-width bench).
+  const SEAT_SLIDE  = 0.40;   // full fore/aft travel per seat
+  const SEAT_DEPTH  = 0.30;   // cushion z-extent used for collision
+  const SEAT_MARGIN = 0.02;   // clearance, ported from simulator COLLISION_MARGIN
+  const SEAT_LAYOUT = {
+    r1d: { label: 'Row 1 Driver',    col: 'driver',    rowZ:  0.44, x: -0.27, color: 0x4e9af1 },
+    r1p: { label: 'Row 1 Passenger', col: 'passenger', rowZ:  0.44, x:  0.27, color: 0xf1a24e },
+    r2d: { label: 'Row 2 Driver',    col: 'driver',    rowZ: -0.04, x: -0.27, color: 0x6ee87a },
+    r2p: { label: 'Row 2 Passenger', col: 'passenger', rowZ: -0.04, x:  0.27, color: 0xe86e8a },
+    r3b: { label: 'Row 3 Bench',     col: 'bench',     rowZ: -0.52, x:  0.0,  color: 0xb0a4f2, bench: true },
+  };
+
+  let renderer, scene, camera, ready = false, failed = false;
+  let windowGroup, seatGroup, glass;
+  const seats = {};                 // id -> { group, def, z, present }
+  let selectedSeatId = 'r1d';
+  let collidingSeatId = null;
+  let seatDir = 1;                  // +1 = moving foremost, -1 = rearmost
+  let theta = 0.6, phi = 0.22, radius = 1.15;        // orbit (spherical) state
+  let target = { x: 0, y: 0.05, z: 0 };
+  let needsRender = true;
+  let current = 'window';
+
+  function _camera() {
+    camera.position.set(
+      target.x + radius * Math.cos(phi) * Math.sin(theta),
+      target.y + radius * Math.sin(phi),
+      target.z + radius * Math.cos(phi) * Math.cos(theta),
+    );
+    camera.lookAt(target.x, target.y, target.z);
+  }
+
+  function _box(w, h, d, color, opts = {}) {
+    const mat = new THREE.MeshPhongMaterial({ color, shininess: opts.shininess || 30,
+      transparent: opts.opacity != null, opacity: opts.opacity != null ? opts.opacity : 1,
+      side: THREE.DoubleSide });
+    return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  }
+
+  function _lighten(hex, amt = 24) {
+    const r = Math.min(255, ((hex >> 16) & 255) + amt);
+    const g = Math.min(255, ((hex >> 8) & 255) + amt);
+    const b = Math.min(255, (hex & 255) + amt);
+    return (r << 16) | (g << 8) | b;
+  }
+
+  function _buildWindow() {
+    const door = new THREE.Group();
+
+    // Outer door skin (exterior, behind the glass)
+    const skin = _box(0.66, 0.84, 0.02, 0x2d333b, { shininess: 18 });
+    skin.position.set(0, -0.05, -0.05);
+    door.add(skin);
+
+    // Inner door card — in FRONT, only below the sill, so retracted glass hides
+    const card = _box(0.66, 0.46, 0.02, 0x21262d, { shininess: 12 });
+    card.position.set(0, -0.28, 0.05);
+    door.add(card);
+
+    // Window frame (top + two posts + sill) around the opening
+    const frameColor = 0x484f58;
+    const top = _box(0.58, 0.04, 0.06, frameColor); top.position.set(0, 0.32, 0);
+    const left = _box(0.04, 0.34, 0.06, frameColor); left.position.set(-0.27, 0.15, 0);
+    const right = _box(0.04, 0.34, 0.06, frameColor); right.position.set(0.27, 0.15, 0);
+    const sill = _box(0.58, 0.04, 0.08, 0x30363d); sill.position.set(0, -0.01, 0.02);
+    door.add(top, left, right, sill);
+
+    // Glass pane (semi-transparent), slides vertically inside the frame
+    glass = _box(0.50, GLASS_T, 0.012, 0x9fd3ff, { opacity: 0.34, shininess: 110 });
+    door.add(glass);
+    glass.add(new THREE.LineSegments(
+      new THREE.EdgesGeometry(glass.geometry),
+      new THREE.LineBasicMaterial({ color: 0xbfe3ff, transparent: true, opacity: 0.5 })));
+
+    return door;
+  }
+
+  function _makeSeat(def) {
+    const g = new THREE.Group();
+    const w = def.bench ? 0.92 : 0.40;          // bench is full-width
+    const cushion = _box(w, 0.10, SEAT_DEPTH + 0.04, def.color, { shininess: 20 });
+    cushion.position.set(0, -0.22, 0.02);
+    const back = _box(w, 0.46, 0.10, _lighten(def.color), { shininess: 20 });
+    back.position.set(0, 0.02, -0.16); back.rotation.x = -0.12;
+    g.add(cushion, back);
+    if (!def.bench) {                            // headrests on the captain's chairs
+      const head = _box(0.20, 0.12, 0.10, _lighten(def.color), { shininess: 20 });
+      head.position.set(0, 0.30, -0.18);
+      g.add(head);
+    }
+    g.userData.mats = [cushion.material, back.material];
+    return g;
+  }
+
+  function _buildSeatLayout() {
+    const group = new THREE.Group();
+
+    // Cabin floor
+    const floor = _box(0.95, 0.02, 1.75, 0x21262d, { shininess: 6 });
+    floor.position.set(0, -0.30, -0.02);
+    group.add(floor);
+
+    for (const id in SEAT_LAYOUT) {
+      const def = SEAT_LAYOUT[id];
+      const s = _makeSeat(def);
+      s.position.set(def.x, 0, def.rowZ);
+      seats[id] = { group: s, def, z: def.rowZ, present: true };
+      group.add(s);
+    }
+    return group;
+  }
+
+  // Two seats share a fore/aft track when they are on the same side, or when
+  // either is the full-width bench. Ported from the simulator's collision model.
+  function _trackShared(a, b) {
+    return a.col === b.col || a.col === 'bench' || b.col === 'bench';
+  }
+
+  // Resolve the legal z for the moving seat, clamping against any present
+  // neighbour on the same track (COLLISION_MARGIN clearance). Like the
+  // simulator, collisions are only checked in the direction of travel, so a
+  // seat resting near a neighbour behind it isn't flagged while moving away.
+  // Returns the clamped z plus the label of the seat that blocked it (or null).
+  function _resolveSeatZ(id, targetZ) {
+    const me = seats[id];
+    const HD = SEAT_DEPTH / 2;
+    let zMax = Infinity, zMaxLabel = null;       // forward limit (neighbour ahead)
+    let zMin = -Infinity, zMinLabel = null;      // rearward limit (neighbour behind)
+
+    for (const oid in seats) {
+      if (oid === id) continue;
+      const o = seats[oid];
+      if (!o.present || !_trackShared(me.def, o.def)) continue;
+      const oFront = o.z + HD, oBack = o.z - HD;
+      if (o.def.rowZ > me.def.rowZ && seatDir >= 0) {   // neighbour ahead → forward limit
+        const lim = oBack - HD - SEAT_MARGIN;
+        if (lim < zMax) { zMax = lim; zMaxLabel = o.def.label; }
+      } else if (o.def.rowZ < me.def.rowZ && seatDir < 0) { // neighbour behind → rearward limit
+        const lim = oFront + HD + SEAT_MARGIN;
+        if (lim > zMin) { zMin = lim; zMinLabel = o.def.label; }
+      }
+    }
+
+    let z = targetZ, hit = null;
+    if (z > zMax) { z = zMax; hit = zMaxLabel; }
+    else if (z < zMin) { z = zMin; hit = zMinLabel; }
+    return { z, hit };
+  }
+
+  // Emissive cue: red while colliding, soft blue on the selected seat.
+  function _refreshSeatMaterials() {
+    for (const id in seats) {
+      const e = id === collidingSeatId ? 0x551111
+              : id === selectedSeatId  ? 0x10243a : 0x000000;
+      for (const m of seats[id].group.userData.mats) m.emissive.setHex(e);
+    }
+    needsRender = true;
+  }
+
+  function _showCollisionBanner(label) {
+    const el = document.getElementById('scene3dCollision');
+    if (el) { el.textContent = '\u26A0 Blocked — collision with ' + label; el.style.display = ''; }
+  }
+  function _hideCollisionBanner() {
+    const el = document.getElementById('scene3dCollision');
+    if (el) el.style.display = 'none';
+  }
+
+  function init() {
+    if (ready || failed) return !failed;
+    if (typeof THREE === 'undefined') { failed = true; return false; }
+    const canvas = document.getElementById('window3dCanvas');
+    if (!canvas) { failed = true; return false; }
+
+    try {
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    } catch (err) {
+      // No WebGL context (headless browser / GPU-less host): degrade to the
+      // chart + KPIs rather than letting the failure abort the whole panel.
+      failed = true;
+      return false;
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(42, 2, 0.1, 100);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+    const key = new THREE.DirectionalLight(0xffffff, 0.9); key.position.set(1.2, 2, 1.4);
+    scene.add(key);
+    const rim = new THREE.DirectionalLight(0x88aaff, 0.35); rim.position.set(-1.5, 0.5, -1);
+    scene.add(rim);
+
+    windowGroup = _buildWindow(); scene.add(windowGroup);
+    seatGroup = _buildSeatLayout(); scene.add(seatGroup);
+
+    _bindOrbit(canvas);
+    ready = true;
+    _refreshSeatMaterials();
+    _resize();
+    window.addEventListener('resize', () => { _resize(); });
+    _loop();
+    return true;
+  }
+
+  function _bindOrbit(canvas) {
+    let dragging = false, lx = 0, ly = 0;
+    canvas.addEventListener('pointerdown', e => { dragging = true; lx = e.clientX; ly = e.clientY; canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      theta -= (e.clientX - lx) * 0.01;
+      phi = Math.max(-0.5, Math.min(1.2, phi + (e.clientY - ly) * 0.01));
+      lx = e.clientX; ly = e.clientY; needsRender = true;
+    });
+    const stop = () => { dragging = false; };
+    canvas.addEventListener('pointerup', stop);
+    canvas.addEventListener('pointercancel', stop);
+  }
+
+  function _resize() {
+    if (!ready) return;
+    const canvas = renderer.domElement;
+    const w = canvas.clientWidth || 400, h = canvas.clientHeight || 260;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    needsRender = true;
+  }
+
+  function _loop() {
+    if (!ready) return;
+    if (needsRender) { _camera(); renderer.render(scene, camera); needsRender = false; }
+    requestAnimationFrame(_loop);
+  }
+
+  function setPosition(capability, posMm) {
+    if (!ready) return;
+    const cap = capability === 'seating' ? 'seating' : 'window';
+    const rng = RANGE[cap];
+    const p = Math.max(rng.min, Math.min(rng.max, Number(posMm) || rng.min));
+    const frac = (p - rng.min) / (rng.max - rng.min);     // 0..1
+
+    let labelHtml = '';
+    if (cap === 'window' && glass) {
+      glass.position.y = -GLASS_T / 2 + frac * GLASS_T;    // closed = up/full
+      labelHtml = `3D View — <strong>${Math.round(frac * 100)}% closed</strong> (${p.toFixed(0)} mm)`;
+    } else if (cap === 'seating') {
+      const sel = seats[selectedSeatId];
+      if (sel) {
+        // 250 mm (rearmost) = home; higher mm slides the seat forward toward
+        // the row ahead, so the start is collision-free and a forward move can
+        // still close on its neighbour.
+        const targetZ = sel.def.rowZ + frac * SEAT_SLIDE;
+        const { z, hit } = _resolveSeatZ(selectedSeatId, targetZ);
+        sel.group.position.z = z; sel.z = z;
+        collidingSeatId = hit ? selectedSeatId : null;
+        _refreshSeatMaterials();
+        if (hit) _showCollisionBanner(hit); else _hideCollisionBanner();
+        labelHtml = `3D View — <strong>${sel.def.label}</strong>` +
+          (hit ? ` · <span style="color:#ff8585;">blocked by ${hit}</span>`
+               : ` · ${p.toFixed(0)} mm`);
+      }
+    }
+    needsRender = true;
+    const label = document.getElementById('window3dLabel');
+    if (label && labelHtml) label.innerHTML = labelHtml;
+  }
+
+  // Choose which seat the physics drives; reset the others to their home
+  // position so the cabin shows a single moving seat against static neighbours.
+  function selectSeat(id) {
+    if (seats[id]) selectedSeatId = id;
+    collidingSeatId = null;
+    for (const oid in seats) {
+      if (oid === selectedSeatId) continue;
+      seats[oid].group.position.z = seats[oid].def.rowZ;
+      seats[oid].z = seats[oid].def.rowZ;
+    }
+    _hideCollisionBanner();
+    _refreshSeatMaterials();
+  }
+
+  // Record the travel direction so collisions are only checked ahead/behind
+  // depending on which way the seat is being driven.
+  function setSeatTravel(fromMm, targetMm) {
+    seatDir = Number(targetMm) >= Number(fromMm) ? 1 : -1;
+  }
+
+  function showFor(capability) {
+    const wrap = document.getElementById('window3dWrap');
+    if (!wrap) return;
+    wrap.style.display = '';
+    if (!init()) {
+      wrap.innerHTML = '<div class="window3d-err">3D view unavailable ' +
+        '(WebGL/Three.js could not load).</div>';
+      return;
+    }
+    current = capability === 'seating' ? 'seating' : 'window';
+    windowGroup.visible = current === 'window';
+    seatGroup.visible = current === 'seating';
+    if (current !== 'seating') _hideCollisionBanner();
+    // Frame each rig nicely while keeping the user's orbit angles.
+    if (current === 'seating') { target = { x: 0, y: -0.04, z: -0.02 }; radius = 1.9; }
+    else { target = { x: 0, y: 0.05, z: 0 }; radius = 1.15; }
+    needsRender = true;
+    requestAnimationFrame(_resize);
+  }
+
+  function hide() {
+    const wrap = document.getElementById('window3dWrap');
+    if (wrap) wrap.style.display = 'none';
+    _hideCollisionBanner();
+  }
+
+  return { showFor, hide, setPosition, selectSeat, setSeatTravel };
+})();
+
+// Position (mm) along a trajectory at replay time t, with a fallback.
+function trajPosAt(traj, t, fallback) {
+  if (!traj || !traj.length) return fallback;
+  const idx = traj.findIndex(p => p.time_s > t);
+  const sample = idx === -1 ? traj[traj.length - 1]
+               : idx === 0  ? traj[0]
+               : traj[idx - 1];
+  return sample.position;
+}
+
+// Map the Row + Seat selectors to a Scene3D seat id (Row 3 is the bench).
+function resolveSeatId() {
+  const row = (document.getElementById('pgf_row') || {}).value || 'Row 1';
+  const seat = (document.getElementById('pgf_seat') || {}).value || 'Driver';
+  if (row.indexOf('3') >= 0) return 'r3b';
+  const r = row.indexOf('2') >= 0 ? 'r2' : 'r1';
+  return r + (seat.indexOf('Passenger') >= 0 ? 'p' : 'd');
+}
+
+function showPhysicsOutput(data, options = {}) {
+  const badge = document.getElementById('physStatusBadge');
+  const emptyEl = document.getElementById('physEmptyState');
+  const chartArea = document.getElementById('chartArea');
+  const metaEl = document.getElementById('chartMeta');
+
+  if (data === null) {
+    physicsPlaybackToken += 1;
+    badge.className = 'status-badge pending'; badge.textContent = 'ready';
+    emptyEl.style.display = ''; chartArea.style.display = 'none';
+    const grid = document.getElementById('kpiGrid');
+    if (grid) grid.innerHTML = '';
+    Scene3D.hide();
+    return;
+  }
+
+  const animated = Boolean(options.animated);
+  badge.className = animated ? 'status-badge pending' : 'status-badge ok';
+  badge.textContent = animated ? 'playing…' : 'done';
+  emptyEl.style.display = 'none';
+  chartArea.style.display = '';
+
+  const traj = data.trajectory || [];
+  const unit = data.capability === 'window' ? 'mm (0=open, 300=closed)' : 'mm';
+  const dir = data.direction || null;
+  const arrow = dir ? (dir.sense === 'up' ? '▲' : '▼') : '';
+
+  // 3D viewport: window + seat. Start it at the move's starting position.
+  if (data.capability === 'window' || data.capability === 'seating') {
+    Scene3D.showFor(data.capability);
+    if (data.capability === 'seating') {
+      Scene3D.selectSeat(resolveSeatId());
+      Scene3D.setSeatTravel(data.from_mm, data.target_mm);
+    }
+    Scene3D.setPosition(data.capability, data.from_mm);
+  } else {
+    Scene3D.hide();
+  }
+
+  const buildMeta = (replayS) => {
+    // Find the last trajectory sample at or before replayS. findIndex returns
+    // -1 once replayS passes the final sample, which means "use the last point".
+    let currentPos = data.from_mm;
+    if (traj.length) {
+      const idx = traj.findIndex(p => p.time_s > replayS);
+      const sample = idx === -1 ? traj[traj.length - 1]
+                   : idx === 0  ? traj[0]
+                   : traj[idx - 1];
+      currentPos = sample.position;
+    }
+    return `
+      <span>Duration: <strong>${data.duration_s} s</strong></span>
+      <span>Start: <strong>${data.from_mm} mm</strong></span>
+      <span>Target: <strong>${data.target_mm} mm</strong></span>
+      ${dir ? `<span>Direction: <strong>${arrow} ${dir.label}</strong></span>` : ''}
+      <span>Position: <strong>${Number(currentPos).toFixed(2)} mm</strong></span>
+      <span>Replay t: <strong>${replayS.toFixed(2)} s</strong></span>
+      <span style="color:var(--text3);font-size:11px;">${unit}</span>`;
+  };
+
+  renderKpis(data);
+
+  // Remember where this capability ended up so the next move starts there
+  // (lets the user raise then lower the window to compare directions).
+  window._lastSimPos = window._lastSimPos || {};
+  if (data.final_position_mm != null) {
+    window._lastSimPos[data.capability] = data.final_position_mm;
+  }
+
+  if (!animated) {
+    metaEl.innerHTML = buildMeta(data.duration_s || 0);
+    drawPhysicsChart(document.getElementById('physChart'), traj, null, null);
+    if (data.capability === 'window' || data.capability === 'seating') {
+      Scene3D.setPosition(data.capability, data.final_position_mm != null ? data.final_position_mm : data.target_mm);
+    }
+    return;
+  }
+
+  physicsPlaybackToken += 1;
+  const token = physicsPlaybackToken;
+  const pressedAtMs = options.syncToPressMs || Date.now();
+  const duration = Number(data.duration_s || 0);
+  const canvas = document.getElementById('physChart');
+  let apiResponseTimeS = null;
+
+  const tick = () => {
+    if (token !== physicsPlaybackToken) return;
+    const replayS = Math.max(0, (Date.now() - pressedAtMs) / 1000);
+    const clippedS = Math.min(replayS, duration);
+    metaEl.innerHTML = buildMeta(clippedS);
+    drawPhysicsChart(canvas, traj, clippedS, apiResponseTimeS);
+    if (data.capability === 'window' || data.capability === 'seating') {
+      Scene3D.setPosition(data.capability, trajPosAt(traj, clippedS, data.from_mm));
+    }
+
+    if (replayS < duration) {
+      requestAnimationFrame(tick);
+    } else {
+      badge.className = 'status-badge ok';
+      badge.textContent = 'done';
+      drawPhysicsChart(canvas, traj, duration, apiResponseTimeS);
+      if (data.capability === 'window' || data.capability === 'seating') {
+        Scene3D.setPosition(data.capability, data.final_position_mm != null ? data.final_position_mm : data.target_mm);
+      }
+    }
+  };
+
+  // Intercept the API response arrival and record its timestamp into the playback
+  const origRunApi = window._pendingApiDoneMs;
+  const captureApiTs = (doneMs) => {
+    apiResponseTimeS = Math.max(0, (doneMs - pressedAtMs) / 1000);
+  };
+  window._registerApiResponseCapture = captureApiTs;
+
+  requestAnimationFrame(tick);
+}
+
+// ════════════════════════════════════════════════════════════
+// Canvas chart
+// ════════════════════════════════════════════════════════════
+function drawPhysicsChart(canvas, points, uptoSec = null, apiResponseAtS = null) {
+  if (!points || points.length < 2) return;
+
+  const renderPoints = uptoSec === null
+    ? points
+    : points.filter(p => p.time_s <= uptoSec);
+  if (renderPoints.length < 2) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth;
+  const H = 200;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const pad = { t:16, r:16, b:30, l:48 };
+  const pw = W - pad.l - pad.r;
+  const ph = H - pad.t - pad.b;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const times = renderPoints.map(p => p.time_s);
+  const maxT = Math.max(...points.map(p => p.time_s)) || 1;
+  const pos = renderPoints.map(p => p.position);
+  const vel = renderPoints.map(p => p.velocity / 10);
+  const force = renderPoints.map(p => p.force / 10);
+
+  // Use full trajectory for Y-range so axis stays stable during playback
+  const allPos = points.map(p => p.position);
+  const minPos = Math.min(...allPos);
+  const maxPos = Math.max(...allPos);
+
+  // Grid lines
+  ctx.strokeStyle = '#21262d'; ctx.lineWidth = 1;
+  for (let i = 1; i <= 4; i++) {
+    const y = pad.t + ph * (i / 4);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle = '#30363d'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, H - pad.b);
+  ctx.lineTo(W - pad.r, H - pad.b); ctx.stroke();
+
+  // Zero line (if min < 0)
+  const zeroY = pad.t + ph - (0 - minPos) / (maxPos - minPos + 0.001) * ph;
+
+  // Y axis labels
+  ctx.fillStyle = '#8b949e'; ctx.font = `${10 * dpr / dpr}px sans-serif`;
+  ctx.textAlign = 'right';
+  ctx.fillText(maxPos.toFixed(0), pad.l - 4, pad.t + 10);
+  ctx.fillText(minPos.toFixed(0), pad.l - 4, H - pad.b);
+  ctx.fillText('mm', pad.l - 4, pad.t + ph / 2);
+
+  // X axis labels
+  ctx.textAlign = 'center';
+  ctx.fillText('0', pad.l, H - pad.b + 14);
+  ctx.fillText(maxT.toFixed(1) + 's', W - pad.r, H - pad.b + 14);
+  ctx.fillText((maxT / 2).toFixed(1) + 's', pad.l + pw / 2, H - pad.b + 14);
+
+  function plotLine(data, color, lineW) {
+    if (!data.length) return;
+    const allD = data.map(Math.abs);
+    const maxD = Math.max(...allD) || 1;
+    ctx.strokeStyle = color; ctx.lineWidth = lineW;
+    ctx.beginPath();
+    data.forEach((v, i) => {
+      const x = pad.l + (times[i] / maxT) * pw;
+      // Normalize: position uses its own range; others normalized relative to max
+      const y = pad.t + ph - ((v - minPos) / Math.max(maxPos - minPos, 1)) * ph * 0.92;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  }
+
+  // Limit markers (at-limit points)
+  ctx.fillStyle = 'rgba(248,81,73,0.5)';
+  renderPoints.forEach((p, i) => {
+    if (p.is_at_limit) {
+      const x = pad.l + (times[i] / maxT) * pw;
+      const y = pad.t + ph - ((p.position - minPos) / Math.max(maxPos - minPos, 1)) * ph * 0.92;
+      ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+    }
+  });
+
+  // Plot position (primary, thicker)
+  plotLine(pos, '#58a6ff', 2);
+
+  // Plot velocity (scaled ÷10) and force (scaled ÷10) for overlay readability.
+  // Use MAGNITUDE (|v|): velocity and force are negative for a downward
+  // (opening/lowering) move, so normalising the signed value would map the
+  // high-speed phase to the bottom of the chart and the end-of-travel slowdown
+  // to the top — the opposite of what's physically happening. Plotting |v|
+  // makes the trace height reflect how hard the motor is working in either
+  // direction, on the position axis range for overlay.
+  const velMag = vel.map(Math.abs);
+  const forceMag = force.map(Math.abs);
+  const velMax = Math.max(...velMag) || 1;
+  const forceMax = Math.max(...forceMag) || 1;
+  const velScaled = velMag.map(v => minPos + (v / velMax) * (maxPos - minPos));
+  const forceScaled = forceMag.map(v => minPos + (v / forceMax) * (maxPos - minPos));
+  plotLine(velScaled, '#3fb950', 1.5);
+  plotLine(forceScaled, '#f0883e', 1.5);
+
+  // ── t=0 start marker (green dashed) ────────────────────────
+  ctx.save();
+  ctx.strokeStyle = 'rgba(63,185,80,0.5)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t);
+  ctx.lineTo(pad.l, H - pad.b);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(63,185,80,0.7)';
+  ctx.textAlign = 'left';
+  ctx.font = '10px sans-serif';
+  ctx.fillText('t=0', pad.l + 3, pad.t + 10);
+  ctx.restore();
+
+  // ── Moving cursor at uptoSec ────────────────────────────────
+  if (uptoSec !== null && uptoSec > 0) {
+    const curX = pad.l + (uptoSec / maxT) * pw;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(88,166,255,0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(curX, pad.t);
+    ctx.lineTo(curX, H - pad.b);
+    ctx.stroke();
+    // Dot on position line at cursor
+    const idx = renderPoints.findIndex(p => p.time_s >= uptoSec);
+    const cp = idx >= 0 ? renderPoints[idx] : renderPoints[renderPoints.length - 1];
+    if (cp) {
+      const cy = pad.t + ph - ((cp.position - minPos) / Math.max(maxPos - minPos, 1)) * ph * 0.92;
+      ctx.fillStyle = '#58a6ff';
+      ctx.beginPath();
+      ctx.arc(curX, cy, 5, 0, Math.PI * 2);
+      ctx.fill();
+      // Position readout bubble
+      const label = cp.position.toFixed(1) + ' mm';
+      const lw = ctx.measureText(label).width + 8;
+      const lx = Math.min(curX + 6, W - pad.r - lw);
+      const ly = Math.max(cy - 20, pad.t + 4);
+      ctx.fillStyle = 'rgba(13,17,23,0.85)';
+      ctx.beginPath();
+      ctx.roundRect(lx, ly, lw, 16, 3);
+      ctx.fill();
+      ctx.fillStyle = '#58a6ff';
+      ctx.textAlign = 'left';
+      ctx.font = '10px sans-serif';
+      ctx.fillText(label, lx + 4, ly + 11);
+    }
+    ctx.restore();
+  }
+
+  // ── API response timestamp marker (white dashed) ───────────
+  if (apiResponseAtS !== null && apiResponseAtS > 0 && apiResponseAtS <= maxT) {
+    const rx = pad.l + (apiResponseAtS / maxT) * pw;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    ctx.moveTo(rx, pad.t);
+    ctx.lineTo(rx, H - pad.b);
+    ctx.stroke();
+    // Label
+    const rLabel = 'API ← ' + apiResponseAtS.toFixed(2) + 's';
+    const rlw = ctx.measureText(rLabel).width + 8;
+    const rlx = Math.min(rx + 4, W - pad.r - rlw);
+    ctx.fillStyle = 'rgba(13,17,23,0.85)';
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.roundRect(rlx, pad.t + 2, rlw, 15, 3);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.textAlign = 'left';
+    ctx.font = '10px sans-serif';
+    ctx.fillText(rLabel, rlx + 4, pad.t + 12);
+    ctx.restore();
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// Boot
+// ════════════════════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>

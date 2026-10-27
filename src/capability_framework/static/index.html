@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Window Capability — Live Example</title>
+<style>
+  :root {
+    --bg:#0d1117; --surface:#161b22; --surface2:#21262d; --border:#30363d;
+    --text:#e6edf3; --text2:#8b949e; --accent:#58a6ff; --green:#3fb950;
+    --red:#f85149; --yellow:#d29922; --orange:#f0883e; --purple:#bc8cff;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+         background:var(--bg); color:var(--text); line-height:1.5; }
+  header { background:var(--surface); border-bottom:1px solid var(--border); padding:18px 28px; }
+  header h1 { font-size:18px; font-weight:600; }
+  header p { color:var(--text2); font-size:13px; margin-top:4px; }
+  .wrap { max-width:1180px; margin:0 auto; padding:22px; display:grid;
+          grid-template-columns:1fr 1fr; gap:20px; }
+  @media (max-width:900px){ .wrap{grid-template-columns:1fr;} }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px; }
+  .card h2 { font-size:15px; margin-bottom:12px; }
+  .card h3 { font-size:12px; text-transform:uppercase; letter-spacing:.6px; color:var(--text2);
+             margin:14px 0 8px; border-bottom:1px solid var(--border); padding-bottom:4px; }
+  .zones { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .zone { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:12px; text-align:center; }
+  .zone .name { font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:.5px; }
+  .zone .pos { font-size:26px; font-weight:700; color:var(--accent); margin:6px 0; }
+  .bar { height:8px; background:#0d1117; border-radius:4px; overflow:hidden; }
+  .bar i { display:block; height:100%; width:0; background:linear-gradient(90deg,var(--green),var(--accent)); transition:width .4s; }
+  .controls { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+  button { background:var(--surface2); border:1px solid var(--border); color:var(--text);
+           border-radius:6px; padding:7px 12px; font-size:13px; cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  button.primary { background:#0284c7; border-color:#38bdf8; color:#fff; font-weight:600; }
+  select, input[type=range] { background:var(--surface2); border:1px solid var(--border);
+    color:var(--text); border-radius:6px; padding:6px; font-size:13px; }
+  pre { background:#0d1117; border:1px solid var(--border); border-radius:8px; padding:12px;
+        font-size:11.5px; overflow:auto; max-height:280px; color:#c9d1d9; white-space:pre-wrap; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:999px; font-size:11px; font-weight:600; }
+  .s-MOVING{background:rgba(88,166,255,.16);color:var(--accent);}
+  .s-STATIONARY{background:rgba(63,185,80,.16);color:var(--green);}
+  .s-PINCHED{background:rgba(248,81,73,.16);color:var(--red);}
+  .s-INHIBITED{background:rgba(210,153,34,.16);color:var(--yellow);}
+  .s-REJECTED{background:rgba(139,148,158,.16);color:var(--text2);}
+  .kpi { display:flex; justify-content:space-between; font-size:12.5px; padding:3px 0; }
+  .kpi span:last-child { color:var(--accent); font-variant-numeric:tabular-nums; }
+  .log { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  .muted { color:var(--text2); font-size:12px; }
+  .statusline { margin-top:10px; font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Window Capability — Live Example</h1>
+  <p>Every button calls the capability's <strong>northbound</strong> API. Each move is driven by the
+     runnable <strong>4-stage bond-graph motor model</strong> behind the <strong>southbound</strong> port.</p>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <h2>Northbound API — move a window</h2>
+    <div class="controls">
+      <select id="zone">
+        <option value="DRIVER_FRONT">Driver front</option>
+        <option value="PASSENGER_FRONT">Passenger front</option>
+        <option value="DRIVER_REAR">Driver rear</option>
+        <option value="PASSENGER_REAR">Passenger rear</option>
+      </select>
+      <input id="target" type="range" min="0" max="100" value="100" step="5">
+      <span id="targetval" class="muted">100%</span>
+      <button class="primary" id="move">POST /window/move</button>
+      <button id="open">Open all</button>
+      <button id="close">Close all</button>
+      <button id="cascade">Cascade open</button>
+      <button id="check">can-execute</button>
+    </div>
+    <div class="statusline" id="status"></div>
+    <div class="zones" id="zones" style="margin-top:14px;"></div>
+
+    <h3>Response (last northbound call)</h3>
+    <pre id="response" class="log">—</pre>
+  </div>
+
+  <div class="card">
+    <h2>Southbound — the physics model</h2>
+    <div class="muted">The binding drives this model for every move. These are its predicted KPIs
+      (0%→100% full stroke), recomputed when the capability binds to the deployment.</div>
+    <div id="kpis" style="margin-top:12px;"></div>
+
+    <h3>Model parameters</h3>
+    <pre id="params" class="log">—</pre>
+
+    <h3>Live event bus (WINDOW_STATE)</h3>
+    <pre id="events" class="log">waiting…</pre>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const ZONES = ["DRIVER_FRONT","PASSENGER_FRONT","DRIVER_REAR","PASSENGER_REAR"];
+const state = {};
+ZONES.forEach(z => state[z] = 0);
+
+function renderZones() {
+  $("zones").innerHTML = ZONES.map(z => `
+    <div class="zone">
+      <div class="name">${z.replace(/_/g," ")}</div>
+      <div class="pos" id="pos-${z}">${state[z].toFixed(0)}%</div>
+      <div class="bar"><i id="bar-${z}" style="width:${state[z]}%"></i></div>
+    </div>`).join("");
+}
+function setZone(z, v) { state[z] = v; const p=$("pos-"+z), b=$("bar-"+z);
+  if(p) p.textContent = v.toFixed(0)+"%"; if(b) b.style.width = v+"%"; }
+
+async function post(path, body) {
+  const r = await fetch("/vehicle"+path, {
+    method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body||{})
+  });
+  const data = await r.json();
+  $("response").textContent = JSON.stringify(data, null, 2);
+  if (data.zone && data.position_pct != null) setZone(data.zone, data.position_pct);
+  if (data.per_zone) for (const [z,s] of Object.entries(data.per_zone))
+    if (s.position_pct != null) setZone(z, s.position_pct);
+  const st = data.status ? `<span class="pill s-${data.status}">${data.status}</span>` : "";
+  const reason = data.reason ? ` · ${data.reason}` : "";
+  $("status").innerHTML = st + reason;
+  return data;
+}
+
+$("target").addEventListener("input", e => $("targetval").textContent = e.target.value+"%");
+$("move").onclick = () => post("/window/move", { zone:$("zone").value, target_pct:+$("target").value });
+$("open").onclick  = () => post("/window/orchestrate", { mode:"SYNC", target_pct:100 });
+$("close").onclick = () => post("/window/orchestrate", { mode:"SYNC", target_pct:0 });
+$("cascade").onclick = () => post("/window/orchestrate", { mode:"CASCADE_OPEN", target_pct:100 });
+$("check").onclick = () => post("/window/can-execute", { zone:$("zone").value, target_pct:+$("target").value });
+
+async function loadModel() {
+  const m = await (await fetch("/vehicle/window/model")).json();
+  $("params").textContent = JSON.stringify(m.parameters, null, 2);
+  const k = m.deployment_kpis || m.agnostic_kpis || {};
+  const order = ["move_latency_s","peak_current_a","rms_current_a","avg_current_a",
+                 "peak_force_n","avg_velocity_mms","energy_wh","total_travel_mm","supply_voltage_v"];
+  $("kpis").innerHTML = order.filter(x => x in k)
+    .map(x => `<div class="kpi"><span>${x}</span><span>${k[x]}</span></div>`).join("");
+}
+
+function stream() {
+  const es = new EventSource("/vehicle/events");
+  let n = 0;
+  es.onmessage = (e) => {
+    const d = JSON.parse(e.data);
+    if (d.topic === "WINDOW_STATE") {
+      const p = d.payload;
+      if (p.zone && p.position_pct != null) setZone(p.zone, p.position_pct);
+      $("events").textContent = (++n) + "  " + d.ts + "  " + d.topic + "  " +
+        JSON.stringify(p) + "\n" + $("events").textContent.split("\n").slice(0,12).join("\n");
+    }
+  };
+  es.onerror = () => { /* the browser reconnects automatically */ };
+}
+
+renderZones(); loadModel(); stream();
+</script>
+</body>
+</html>

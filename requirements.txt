@@ -1,0 +1,5 @@
+# Runtime dependency for the runnable example application.
+flask>=3.0
+
+# Development / test dependency.
+pytest>=7.4

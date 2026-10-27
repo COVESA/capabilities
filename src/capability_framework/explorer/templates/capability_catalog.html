@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SDV Capability Catalog & Explorer</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --surface2: #21262d;
+    --border: #30363d; --text: #e6edf3; --text2: #8b949e;
+    --accent: #58a6ff; --green: #3fb950; --yellow: #d29922;
+    --red: #f85149; --purple: #bc8cff; --orange: #f0883e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+         background: var(--bg); color: var(--text); line-height: 1.5; }
+
+  /* Layout */
+  .top-bar { background: var(--surface); border-bottom: 1px solid var(--border);
+             padding: 12px 24px; display: flex; align-items: center; gap: 16px; }
+  .top-bar h1 { font-size: 18px; font-weight: 600; }
+  .top-bar .nav { display: flex; gap: 8px; margin-left: auto; }
+  .top-bar .nav a { color: var(--text2); text-decoration: none; padding: 6px 12px;
+                    border-radius: 6px; font-size: 13px; }
+  .top-bar .nav a:hover, .top-bar .nav a.active { background: var(--surface2); color: var(--text); }
+
+  .container { max-width: 1440px; margin: 0 auto; padding: 24px; transition: max-width 0.25s ease, padding 0.25s ease; }
+  .container.full-width { max-width: 100%; padding: 16px 24px; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+  .tab { padding: 10px 20px; cursor: pointer; color: var(--text2); border-bottom: 2px solid transparent;
+         font-size: 14px; font-weight: 500; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Cards grid */
+  .cap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+  .cap-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+              padding: 20px; cursor: pointer; transition: border-color 0.2s, transform 0.1s; }
+  .cap-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .cap-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .cap-card h3 { font-size: 16px; margin-bottom: 4px; }
+  .cap-card .domain { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
+  .cap-card .desc { font-size: 13px; color: var(--text2); margin: 8px 0; line-height: 1.4; }
+  .cap-card .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .tag { padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
+  .tag.asil-b { background: #f8514920; color: var(--red); border: 1px solid #f8514940; }
+  .tag.asil-d { background: #f8514940; color: #ff7b72; border: 1px solid #f8514960; }
+  .tag.qm { background: #3fb95020; color: var(--green); border: 1px solid #3fb95040; }
+  .tag.version { background: #58a6ff20; color: var(--accent); border: 1px solid #58a6ff40; }
+  .tag.domain-tag { background: #bc8cff20; color: var(--purple); border: 1px solid #bc8cff40; }
+
+  /* Detail panel */
+  .detail-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+                  margin-top: 24px; overflow: hidden; }
+  .detail-header { padding: 20px 24px; border-bottom: 1px solid var(--border);
+                   display: flex; justify-content: space-between; align-items: center; }
+  .detail-header h2 { font-size: 20px; }
+  .detail-tabs { display: flex; gap: 2px; background: var(--surface2); padding: 4px; }
+  .detail-tab { padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 13px;
+                color: var(--text2); }
+  .detail-tab:hover { color: var(--text); }
+  .detail-tab.active { background: var(--surface); color: var(--accent); }
+  .detail-body { padding: 24px; }
+
+  /* Operations table */
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; }
+  th { color: var(--text2); font-weight: 500; font-size: 12px; text-transform: uppercase;
+       letter-spacing: 0.5px; }
+  td code { background: var(--surface2); padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+
+  /* Code block */
+  .code-block { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+                padding: 16px; font-family: 'SF Mono', Consolas, monospace; font-size: 12px;
+                line-height: 1.6; overflow-x: auto; white-space: pre-wrap; max-height: 500px;
+                overflow-y: auto; color: var(--text2); }
+
+  /* System model params */
+  .params-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+  .param-item { background: var(--surface2); border-radius: 6px; padding: 12px; }
+  .param-item .key { font-size: 12px; color: var(--text2); margin-bottom: 2px; }
+  .param-item .value { font-size: 16px; font-weight: 600; }
+
+  /* Chart area */
+  .chart-container { width: 100%; height: 300px; background: var(--surface2); border-radius: 6px;
+                     border: 1px solid var(--border); position: relative; overflow: hidden; }
+  .chart-canvas { width: 100%; height: 100%; }
+
+  /* Status badges */
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .status-dot.active { background: var(--green); }
+  .status-dot.inactive { background: var(--text2); }
+
+  /* Interactive controls */
+  .control-row { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .control-row label { font-size: 13px; color: var(--text2); min-width: 80px; }
+  select, input[type="number"], input[type="range"] { background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: 6px 10px; border-radius: 4px; font-size: 13px; }
+  select { min-width: 160px; }
+  button.action { background: var(--accent); color: #fff; border: none; padding: 8px 20px;
+                  border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; }
+  button.action:hover { opacity: 0.9; }
+  button.action.secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .result-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+                padding: 12px 16px; font-family: monospace; font-size: 12px; margin-top: 12px;
+                max-height: 200px; overflow-y: auto; white-space: pre-wrap; }
+
+  /* Architecture diagram */
+  .arch-diagram { background: var(--surface2); border-radius: 8px; padding: 24px; font-family: monospace;
+                  font-size: 12px; line-height: 1.8; white-space: pre; overflow-x: auto; }
+
+  /* Capability boundary SVG diagram (inlined for animation) */
+  .diagram-wrap { background: #0d1117; border: 1px solid var(--border); border-radius: 8px;
+                  padding: 12px; overflow-x: auto; text-align: center; }
+  .cap-diagram { max-width: 100%; height: auto; display: inline-block; }
+
+  .section-title { font-size: 15px; font-weight: 600; margin: 20px 0 12px; color: var(--text); }
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text2); }
+  .empty-state h3 { margin-bottom: 8px; }
+
+  /* Orchestrator section */
+  .seq-cards { display: flex; gap: 12px; flex-wrap: wrap; }
+  .seq-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+              padding: 16px 20px; min-width: 200px; cursor: pointer; transition: all 0.15s; }
+  .seq-card:hover { border-color: var(--accent); }
+  .seq-card h4 { font-size: 14px; margin-bottom: 4px; }
+  .seq-card p { font-size: 12px; color: var(--text2); }
+
+  /* List-based catalog navigation (vehicle.body.<package>.<capability>) */
+  .catalog-layout { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; }
+  .catalog-layout.sidebar-collapsed { display: block; }
+
+  .cap-nav { background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+             padding: 8px; position: sticky; top: 16px; max-height: calc(100vh - 120px); overflow-y: auto; }
+  .cap-nav.collapsed { display: none; }
+
+  .nav-root { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px;
+              padding: 8px 10px 4px; }
+  .nav-pkg { margin-bottom: 2px; }
+  .nav-pkg-header { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer;
+                    border-radius: 6px; font-size: 13px; font-weight: 600; color: var(--text);
+                    user-select: none; }
+  .nav-pkg-header:hover { background: var(--surface2); }
+  .nav-pkg-header .chev { color: var(--text2); font-size: 10px; transition: transform 0.15s; width: 10px; }
+  .nav-pkg.collapsed .chev { transform: rotate(-90deg); }
+  .nav-pkg-header .pkg-count { margin-left: auto; font-size: 11px; color: var(--text2);
+                               background: var(--surface2); border-radius: 10px; padding: 1px 8px; }
+  .nav-pkg-items { padding: 2px 0 6px 0; }
+  .nav-pkg.collapsed .nav-pkg-items { display: none; }
+  .nav-cap { display: flex; align-items: center; gap: 8px; padding: 7px 10px 7px 30px; cursor: pointer;
+             border-radius: 6px; font-size: 13px; color: var(--text2); }
+  .nav-cap:hover { background: var(--surface2); color: var(--text); }
+  .nav-cap.selected { background: var(--surface2); color: var(--accent); }
+  .nav-cap .asil-dot { width: 7px; height: 7px; border-radius: 50%; margin-left: auto; flex: none; }
+  .nav-cap .asil-dot.b { background: var(--red); }
+  .nav-cap .asil-dot.d { background: #ff7b72; }
+  .nav-cap .asil-dot.qm { background: var(--green); }
+  .nav-cap .gen-badge { font-size: 9px; color: var(--purple); border: 1px solid #bc8cff40;
+                        border-radius: 8px; padding: 0 5px; }
+  .nav-path { font-family: 'SF Mono', Consolas, monospace; font-size: 11px; color: var(--text2);
+              margin: 2px 0 12px; }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <h1>🚗 SDV Capability Architecture</h1>
+  <div class="nav">
+    <a href="/vehicle/catalog/" class="active">Capability Catalog</a>
+    <a href="/vehicle/api-explorer/">API Explorer</a>
+  </div>
+</div>
+
+<div class="container">
+  <!-- Main tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="catalog" title="Click to view API Catalog, click again to toggle sidebar">📋 API Catalog</div>
+    <div class="tab" data-tab="explorer">🔬 Capability Explorer</div>
+    <div class="tab" data-tab="models">📐 Transfer Function Models</div>
+  </div>
+
+  <!-- ═══════════════ TAB 1: API Catalog ═══════════════ -->
+  <div id="tab-catalog" class="tab-content active">
+    <div class="catalog-layout">
+      <!-- Left: list-based package navigation -->
+      <nav class="cap-nav" id="capNav">
+        <div class="nav-root">📦 vehicle.body</div>
+        <div class="nav-tree" id="navTree">Loading…</div>
+      </nav>
+
+      <!-- Right: capability detail -->
+      <div>
+        <div class="empty-state" id="catalogEmpty">
+          <h3>Select a capability</h3>
+          <p>Pick a capability from the package tree to inspect its contract, operations, and model.</p>
+        </div>
+        <div class="detail-panel" id="detailPanel" style="display:none">
+          <div class="detail-header">
+            <div>
+              <h2 id="detailTitle">—</h2>
+              <div class="nav-path" id="detailPath"></div>
+            </div>
+            <div class="tags" id="detailTags"></div>
+          </div>
+          <div class="detail-tabs" id="detailTabs">
+            <div class="detail-tab active" data-dtab="overview">Overview</div>
+            <div class="detail-tab" data-dtab="boundary">Boundary</div>
+            <div class="detail-tab" data-dtab="operations">NB Operations</div>
+            <div class="detail-tab" data-dtab="model">System Model</div>
+            <div class="detail-tab" data-dtab="contract">API Contract</div>
+            <div class="detail-tab" data-dtab="requirements">Requirements</div>
+            <div class="detail-tab" data-dtab="tests">Tests</div>
+          </div>
+          <div class="detail-body" id="detailBody"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ TAB 2: Capability Explorer ═══════════════ -->
+  <div id="tab-explorer" class="tab-content">
+    <h3 style="margin-bottom: 16px">Interactive Capability Testing</h3>
+    <p style="color: var(--text2); margin-bottom: 20px; font-size: 14px;">
+      Test capability commands interactively. Commands go through the full five-phase pipeline
+      (Arbitrate → Precondition → Safety → Actuator → Publish).
+    </p>
+
+    <div class="control-row">
+      <label>Capability</label>
+      <select id="explorerCap" onchange="updateExplorerFields()">
+        <option value="window">🪟 Window</option>
+      </select>
+      <label>Source</label>
+      <select id="explorerSource">
+        <option value="APP">APP</option>
+        <option value="DRIVER" selected>DRIVER</option>
+        <option value="OEM_AUTOMATION">OEM_AUTOMATION</option>
+      </select>
+    </div>
+
+    <div id="explorerFields"></div>
+
+    <div class="control-row" style="margin-top: 12px;">
+      <button class="action" onclick="executeCommand()">▶ Execute Command</button>
+    </div>
+
+    <div class="section-title">Response</div>
+    <div class="result-box" id="explorerResult">No command executed yet.</div>
+
+    <div class="section-title">Event Log</div>
+    <div class="result-box" id="explorerLog" style="max-height: 300px;"></div>
+  </div>
+
+  <!-- ═══════════════ TAB 3: Transfer Function Models ═══════════════ -->
+  <div id="tab-models" class="tab-content">
+    <h3 style="margin-bottom: 16px">Physics-Based Transfer Function Models</h3>
+    <p style="color: var(--text2); margin-bottom: 20px; font-size: 14px;">
+      Each capability with physical actuators has an associated transfer function model
+      derived from DC motor equations. These models enable simulation, constraint enforcement,
+      and predictive safety without hardware.
+    </p>
+
+    <div class="control-row">
+      <label>Capability</label>
+      <select id="modelCap" onchange="loadModel()">
+        <option value="window">🪟 Window Motor</option>
+      </select>
+      <button class="action" onclick="loadModel()">Load Model</button>
+    </div>
+
+    <div class="section-title">Model Parameters</div>
+    <div class="params-grid" id="modelParams"></div>
+
+    <div class="section-title" style="margin-top: 24px;">Simulated Trajectory (Move to Target)</div>
+    <div class="chart-container">
+      <canvas class="chart-canvas" id="trajectoryChart"></canvas>
+    </div>
+    <div style="display:flex; gap:24px; margin-top: 8px;">
+      <div style="font-size:12px; color:var(--text2);">
+        <span style="color:var(--accent);">━━</span> Position &nbsp;
+        <span style="color:var(--green);">━━</span> Velocity &nbsp;
+        <span style="color:var(--orange);">━━</span> Force
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let catalogData = {};
+let selectedCap = null;
+let eventLog = [];
+let _currentDetailTab = 'overview';
+
+// ── URL Query State Management ───────────────────────────
+function parseQueryParams() {
+  const params = new URLSearchParams(window.location.search);
+  const cap = params.get('cap') || params.get('capability') || params.get('c');
+  let mainTab = params.get('main_tab') || params.get('maintab');
+  let tab = params.get('tab') || params.get('dtab') || params.get('section') || params.get('detail');
+  const sidebar = params.get('sidebar');
+
+  const mainTabNames = ['catalog', 'explorer', 'models'];
+  let dtab = null;
+
+  if (tab && mainTabNames.includes(tab) && !cap) {
+    mainTab = tab;
+  } else if (tab) {
+    dtab = tab;
+  }
+
+  return { cap, mainTab: mainTab || 'catalog', dtab: dtab || 'overview', sidebar };
+}
+
+function updateURL(replace = true) {
+  const params = new URLSearchParams();
+
+  const activeMainTab = document.querySelector('.tab.active')?.dataset.tab || 'catalog';
+  if (activeMainTab !== 'catalog') {
+    params.set('main_tab', activeMainTab);
+  }
+
+  if (selectedCap && activeMainTab === 'catalog') {
+    params.set('cap', selectedCap);
+    const activeDTab = document.querySelector('.detail-tab.active')?.dataset.dtab || _currentDetailTab || 'overview';
+    if (activeDTab) {
+      params.set('tab', activeDTab);
+    }
+  }
+
+  const isCollapsed = document.getElementById('capNav')?.classList.contains('collapsed');
+  if (isCollapsed) {
+    params.set('sidebar', 'collapsed');
+  }
+
+  const qs = params.toString();
+  const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+  if (window.location.search !== (qs ? `?${qs}` : '')) {
+    const stateObj = { cap: selectedCap, dtab: _currentDetailTab, mainTab: activeMainTab, sidebar: isCollapsed ? 'collapsed' : 'open' };
+    if (replace) {
+      history.replaceState(stateObj, '', newUrl);
+    } else {
+      history.pushState(stateObj, '', newUrl);
+    }
+  }
+}
+
+// ── Tab switching ────────────────────────────────────────
+function switchMainTab(tabName, shouldUpdateURL = true) {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(x => x.classList.remove('active'));
+  const t = document.querySelector(`.tab[data-tab="${tabName}"]`);
+  const tc = document.getElementById('tab-' + tabName);
+  if (t) t.classList.add('active');
+  if (tc) tc.classList.add('active');
+  if (shouldUpdateURL) updateURL(false);
+}
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    const isAlreadyActive = t.classList.contains('active');
+    const tabName = t.dataset.tab;
+
+    if (tabName === 'catalog' && isAlreadyActive) {
+      // Repeated click on API Catalog tab toggles the sidebar
+      toggleSidebar();
+      return;
+    }
+
+    switchMainTab(tabName, true);
+  });
+});
+
+// ── Load catalog data ────────────────────────────────────
+let packagesData = [];
+async function loadCatalog() {
+  const [capResp, pkgResp] = await Promise.all([
+    fetch('/vehicle/catalog/data'),
+    fetch('/vehicle/catalog/packages'),
+  ]);
+  catalogData = await capResp.json();
+  packagesData = (await pkgResp.json()).packages || [];
+  renderPackageNav();
+
+  const q = parseQueryParams();
+
+  // Sidebar initialization: query param takes precedence, then localStorage
+  if (q.sidebar === 'collapsed' || q.sidebar === '1' || q.sidebar === 'true' || q.sidebar === 'close') {
+    toggleSidebar(true, false);
+  } else if (q.sidebar === 'open' || q.sidebar === '0' || q.sidebar === 'false') {
+    toggleSidebar(false, false);
+  } else {
+    restoreSidebarState(false);
+  }
+
+  // Main tab initialization
+  if (q.mainTab && q.mainTab !== 'catalog') {
+    switchMainTab(q.mainTab, false);
+  } else {
+    switchMainTab('catalog', false);
+  }
+
+  // Capability & Detail tab initialization
+  if (q.cap && catalogData[q.cap]) {
+    selectCap(q.cap, q.dtab, false);
+  }
+
+  // Synchronize URL query params
+  updateURL(true);
+}
+
+function toggleSidebar(forceState, shouldUpdateURL = true) {
+  const layout = document.querySelector('.catalog-layout');
+  const nav = document.getElementById('capNav');
+  const container = document.querySelector('.container');
+  if (!nav || !layout) return;
+
+  const willCollapse = (typeof forceState === 'boolean')
+    ? forceState
+    : !nav.classList.contains('collapsed');
+
+  nav.classList.toggle('collapsed', willCollapse);
+  layout.classList.toggle('sidebar-collapsed', willCollapse);
+  if (container) container.classList.toggle('full-width', willCollapse);
+
+  localStorage.setItem('sdv_catalog_sidebar_collapsed', willCollapse ? '1' : '0');
+  if (shouldUpdateURL) updateURL(false);
+}
+
+function restoreSidebarState(shouldUpdateURL = true) {
+  const saved = localStorage.getItem('sdv_catalog_sidebar_collapsed');
+  if (saved === '1') {
+    toggleSidebar(true, shouldUpdateURL);
+  }
+}
+
+function renderPackageNav() {
+  const nav = document.getElementById('capNav');
+  const asilClass = a => a === 'ASIL_B' ? 'b' : a === 'ASIL_D' ? 'd' : 'qm';
+  let html = `
+    <div class="nav-root">📦 vehicle.body</div>
+    <div class="nav-tree" id="navTree">`;
+  for (const pkg of packagesData) {
+    const caps = pkg.capabilities || [];
+    html += `<div class="nav-pkg" id="pkg-${pkg.name}">
+      <div class="nav-pkg-header" onclick="togglePkg('${pkg.name}')">
+        <span class="chev">▼</span>
+        <span>${pkg.icon || '📁'}</span>
+        <span>${pkg.display_name}</span>
+        <span class="pkg-count">${caps.length}</span>
+      </div>
+      <div class="nav-pkg-items">`;
+    for (const c of caps) {
+      html += `<div class="nav-cap ${selectedCap === c.name ? 'selected' : ''}"
+                    id="nav-${c.name}" onclick="selectCap('${c.name}')">
+        <span>${c.display_name}</span>
+        ${c.generic ? '<span class="gen-badge">generic</span>' : ''}
+        <span class="asil-dot ${asilClass(c.asil_tier)}" title="${c.asil_tier}"></span>
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+  html += `</div>`;
+  nav.innerHTML = html;
+}
+
+function togglePkg(name) {
+  document.getElementById('pkg-' + name).classList.toggle('collapsed');
+}
+
+function updateNavSelection() {
+  document.querySelectorAll('.nav-cap').forEach(x => x.classList.remove('selected'));
+  const el = document.getElementById('nav-' + selectedCap);
+  if (el) el.classList.add('selected');
+}
+
+function renderGrid() {
+  // Retained for backward compatibility; navigation is now list-based.
+  renderPackageNav();
+}
+
+function selectCap(key, targetDTab = null, shouldUpdateURL = true) {
+  selectedCap = key;
+  updateNavSelection();
+  const cap = catalogData[key];
+  if (!cap) return;
+  const d = cap.descriptor;
+  document.getElementById('catalogEmpty').style.display = 'none';
+  document.getElementById('detailPanel').style.display = '';
+  document.getElementById('detailTitle').textContent = d.display_name || d.name;
+  const pathEl = document.getElementById('detailPath');
+  if (pathEl) pathEl.textContent = cap.navigation_path || ('vehicle.body.' + key);
+
+  const tagsEl = document.getElementById('detailTags');
+  const asilClass = (d.asil_tier || '').replace('_', '-').toLowerCase();
+  tagsEl.innerHTML = `
+    <span class="tag ${asilClass}">${d.asil_tier || 'QM'}</span>
+    <span class="tag version">v${d.api_version || '1.0.0'}</span>`;
+
+  // Expand parent package in navigation tree
+  for (const pkg of packagesData) {
+    if ((pkg.capabilities || []).some(c => c.name === key)) {
+      const pkgEl = document.getElementById('pkg-' + pkg.name);
+      if (pkgEl) pkgEl.classList.remove('collapsed');
+      break;
+    }
+  }
+
+  const dtabToSelect = targetDTab || _currentDetailTab || 'overview';
+  setDetailTab(dtabToSelect, false);
+
+  // Wire detail tabs
+  document.querySelectorAll('.detail-tab').forEach(t => {
+    t.onclick = () => {
+      setDetailTab(t.dataset.dtab, true);
+    };
+  });
+
+  if (shouldUpdateURL) updateURL(false);
+}
+
+function setDetailTab(tab, shouldUpdateURL = true) {
+  _currentDetailTab = tab;
+  document.querySelectorAll('.detail-tab').forEach(x => {
+    x.classList.toggle('active', x.dataset.dtab === tab);
+  });
+  showDetailTab(tab);
+  if (shouldUpdateURL) updateURL(false);
+}
+
+window.addEventListener('popstate', (e) => {
+  const q = parseQueryParams();
+  if (q.sidebar === 'collapsed') {
+    toggleSidebar(true, false);
+  } else if (q.sidebar === 'open') {
+    toggleSidebar(false, false);
+  }
+  if (q.mainTab) {
+    switchMainTab(q.mainTab, false);
+  }
+  if (q.cap && catalogData[q.cap]) {
+    selectCap(q.cap, q.dtab, false);
+  }
+});
+
+function showDetailTab(tab) {
+  const body = document.getElementById('detailBody');
+  const cap = catalogData[selectedCap];
+  const d = cap.descriptor;
+
+  if (tab === 'overview') {
+    body.innerHTML = `
+      <p style="margin-bottom:16px;">${d.description || ''}</p>
+      <div class="params-grid">
+        <div class="param-item"><div class="key">Name</div><div class="value">${d.name}</div></div>
+        <div class="param-item"><div class="key">Domain</div><div class="value">${d.domain || 'body'}</div></div>
+        <div class="param-item"><div class="key">ASIL Tier</div><div class="value">${d.asil_tier || 'QM'}</div></div>
+        <div class="param-item"><div class="key">API Version</div><div class="value">${d.api_version || '1.0.0'}</div></div>
+        <div class="param-item"><div class="key">State Topic</div><div class="value">${cap.state_topic || '—'}</div></div>
+        <div class="param-item"><div class="key">NB Operations</div><div class="value">${(d.northbound_operations||[]).join(', ')}</div></div>
+        <div class="param-item"><div class="key">SB Dependencies</div><div class="value">${(d.southbound_dependencies||[]).join(', ') || '—'}</div></div>
+        <div class="param-item"><div class="key">Contract</div><div class="value">${cap.contract || '—'}</div></div>
+      </div>`;
+  } else if (tab === 'boundary') {
+    const rawOps = (cap.operations || []).map(o => o.name);
+    const opList = (rawOps.length ? rawOps : (d.northbound_operations || []))
+      .filter(op => !op.startsWith('can_') && !op.startsWith('release') && op !== 'can_execute');
+
+    const cmd = (cap.operations && cap.operations[0] && cap.operations[0].command_type) || 'Request';
+
+    // Separate into Single-Zone Capability API vs Multi-Zone Domain Orchestrator API
+    const isOrchOp = op => /orchestrate|cascade|sequence|sync/i.test(op);
+    const capOps = opList.filter(op => !isOrchOp(op));
+    const orchOps = opList.filter(op => isOrchOp(op));
+    const firstOp = capOps[0] || opList[0] || 'request';
+
+    let buttonsHtml = '';
+    if (orchOps.length > 0) {
+      buttonsHtml = `
+        <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:12px;">
+          <div>
+            <div style="font-size:11.5px; font-weight:700; color:var(--accent); text-transform:uppercase; margin-bottom:6px; letter-spacing:0.5px;">
+              🔹 Single-Zone Capability API (${d.display_name || d.name}):
+            </div>
+            <div class="control-row" style="margin-bottom:0; flex-wrap:wrap; gap:8px;">
+              ${capOps.map(op => `<button class="action" onclick="startBoundaryAnim('${op}', true)">▶ ${op}()</button>`).join('')}
+              <button class="action secondary" onclick="startBoundaryAnim('${firstOp}', false)">▶ ${firstOp}() — fault</button>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11.5px; font-weight:700; color:var(--purple); text-transform:uppercase; margin-bottom:6px; letter-spacing:0.5px;">
+              🎛️ Multi-Zone Domain Capability Orchestrator API:
+            </div>
+            <div class="control-row" style="margin-bottom:0; flex-wrap:wrap; gap:8px;">
+              ${orchOps.map(op => `<button class="action" style="background:#8b5cf6;" onclick="startBoundaryAnim('${op}', true)">▶ ${op}()</button>`).join('')}
+            </div>
+          </div>
+        </div>`;
+    } else {
+      buttonsHtml = `
+        <div class="control-row" style="margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+          ${capOps.map(op => `<button class="action" onclick="startBoundaryAnim('${op}', true)">▶ ${op}()</button>`).join('')}
+          <button class="action secondary" onclick="startBoundaryAnim('${firstOp}', false)">▶ ${firstOp}() — fault</button>
+        </div>`;
+    }
+
+    body.innerHTML = `
+      ${buttonsHtml}
+      <div class="pipeline-debugger" style="background:#161b22; border:1px solid #30363d; border-radius:8px; padding:10px 14px; margin-bottom:12px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button id="btnDebugPlay" class="action" onclick="togglePlayPause()" style="min-width:76px; padding:5px 12px; font-size:12px;">▶ Play</button>
+          <button id="btnDebugStepBack" class="action secondary" onclick="stepBoundary(-1)" style="padding:5px 12px; font-size:12px;" title="Step backward (vi: h or k)">⏮ Step</button>
+          <button id="btnDebugStep" class="action secondary" onclick="stepBoundary(1)" style="padding:5px 12px; font-size:12px;" title="Step forward (vi: j or l)">⏭ Step</button>
+          <button id="btnDebugReset" class="action secondary" onclick="resetBoundary()" style="padding:5px 12px; font-size:12px;">⏹ Reset</button>
+          <span style="font-size:11px; color:var(--text2); font-family:monospace;">(vi: h/j/k/l)</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label style="font-size:12px; color:var(--text2); display:inline-flex; align-items:center; gap:5px; cursor:pointer; user-select:none; margin:0;">
+            <input type="checkbox" id="chkStartPaused" ${_startPaused ? 'checked' : ''} onchange="toggleStartPaused(this.checked)" style="cursor:pointer; accent-color:var(--accent);">
+            Start paused
+          </label>
+          <label style="font-size:12px; color:var(--text2);">Speed:</label>
+          <input type="range" id="animSpeedSlider" min="150" max="850" value="400" style="width:100px; direction:rtl;" oninput="updateAnimSpeed(this.value)">
+          <span id="animSpeedLabel" style="font-size:12px; color:var(--text); min-width:44px;">1.0x</span>
+        </div>
+        <div id="animStepBadge" style="font-size:12px; font-family:monospace; color:#38bdf8; background:#0c1626; border:1px solid #38bdf840; padding:4px 10px; border-radius:4px; max-width:440px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+          Ready — select an operation to run
+        </div>
+      </div>
+      <div class="diagram-wrap" id="boundary-wrap">Loading…</div>`;
+    renderBoundary(selectedCap, 'boundary');
+  } else if (tab === 'operations') {
+    const ops = cap.operations || [];
+    let rows = ops.map(op => {
+      const isOrch = /orchestrate|cascade|sequence|sync/i.test(op.name);
+      return `<tr>
+        <td><strong>${op.name}</strong> ${isOrch ? '<span class="tag" style="background:#bc8cff20; color:var(--purple); border:1px solid #bc8cff40; font-size:10px;">Domain Orch</span>' : '<span class="tag" style="background:#58a6ff20; color:var(--accent); border:1px solid #58a6ff40; font-size:10px;">Capability</span>'}</td>
+        <td>${op.description || '—'}</td>
+        <td><code>${op.command_type}</code></td>
+        <td><code>${op.response_type}</code></td>
+        <td>${op.is_async ? '⏳ Async' : '⚡ Sync'}</td>
+        <td>${(op.vss_paths||[]).map(p => '<code>'+p+'</code>').join('<br>') || '—'}</td>
+      </tr>`;
+    }).join('');
+    body.innerHTML = `<table>
+      <thead><tr><th>Operation</th><th>Description</th><th>Command</th><th>Response</th><th>Mode</th><th>VSS Paths</th></tr></thead>
+      <tbody>${rows}</tbody></table>`;
+  } else if (tab === 'model') {
+    const m = cap.system_model || {};
+    if (Object.keys(m).length === 0) {
+      body.innerHTML = '<div class="empty-state"><h3>No system model</h3><p>This capability does not have a physics-based model (software-only).</p></div>';
+    } else {
+      let items = Object.entries(m).map(([k,v]) => `
+        <div class="param-item"><div class="key">${k}</div><div class="value">${v}</div></div>`).join('');
+      body.innerHTML = `<div class="params-grid">${items}</div>`;
+    }
+  } else if (tab === 'contract') {
+    if (cap.contract) {
+      body.innerHTML = '<div class="code-block">Loading contract…</div>';
+      fetch('/vehicle/catalog/artifact/' + cap.contract)
+        .then(r => r.json())
+        .then(d => { body.querySelector('.code-block').textContent = d.content || d.error; })
+        .catch(() => { body.querySelector('.code-block').textContent = 'Failed to load.'; });
+    } else {
+      body.innerHTML = '<div class="empty-state"><h3>No contract file</h3></div>';
+    }
+  } else if (tab === 'requirements') {
+    if (cap.requirements) {
+      body.innerHTML = '<div class="code-block">Loading requirements…</div>';
+      fetch('/vehicle/catalog/artifact/' + cap.requirements)
+        .then(r => r.json())
+        .then(d => { body.querySelector('.code-block').textContent = d.content || d.error; })
+        .catch(() => { body.querySelector('.code-block').textContent = 'Failed to load.'; });
+    } else {
+      body.innerHTML = '<div class="empty-state"><h3>No requirements file</h3><p>Requirements not yet defined for this capability.</p></div>';
+    }
+  } else if (tab === 'tests') {
+    if (cap.tests) {
+      body.innerHTML = '<div class="code-block">Loading tests…</div>';
+      fetch('/vehicle/catalog/artifact/' + cap.tests)
+        .then(r => r.json())
+        .then(d => { body.querySelector('.code-block').textContent = d.content || d.error; })
+        .catch(() => { body.querySelector('.code-block').textContent = 'Failed to load.'; });
+    } else {
+      body.innerHTML = '<div class="empty-state"><h3>No test file</h3></div>';
+    }
+  }
+}
+
+// ── Animated Boundary diagram ────────────────────────────
+// The boundary SVG is inlined (not <img>) so each .bd-step group can be lit
+// as a northbound request (e.g. moveWindow) is replayed through the five-phase
+// pipeline: ARBITRATE → PRECONDITION → SAFETY → ACTUATOR → PUBLISH (BR-006).
+let _boundarySvg = null;
+
+async function renderBoundary(cap, kind = 'boundary') {
+  const wrap = document.getElementById('boundary-wrap');
+  if (!wrap) return;
+  const isBoundary = (kind === 'boundary');
+  try {
+    const res = await fetch(`/vehicle/capability-diagram/${cap}/${kind}`);
+    wrap.innerHTML = await res.text();
+    const svgEl = wrap.querySelector('svg');
+    if (svgEl) {
+      svgEl.classList.add('cap-diagram');
+      svgEl.style.maxWidth = '100%';
+      svgEl.style.height = 'auto';
+      if (isBoundary) {
+        _boundarySvg = svgEl;
+        resetBoundary();
+      }
+    }
+  } catch (e) {
+    wrap.innerHTML = '<p style="color:var(--text2)">Failed to load diagram.</p>';
+  }
+}
+
+let _animState = {
+  activeOp: null,
+  success: true,
+  steps: [],
+  currentStepIndex: -1,
+  timer: null,
+  isPlaying: false,
+  speedMs: 400
+};
+
+function buildBoundarySteps(opName, success) {
+  const isCrossDomainOrch = /window_and_lighting|welcome|camp|lock|macro/i.test(opName);
+  const domainOrch  = /orchestrate|cascade|sequence|syncall|allzones|allwindows|all$/i.test(opName);
+  const steps = [];
+
+  // Step 1: Caller initiation — Feature / App (Vehicle-Level Mgmt & VehicleState active in background)
+  if (isCrossDomainOrch) {
+    // Begins with Cross-Domain Orchestrator triggered from App
+    steps.push({
+      title: 'Caller Invocation & Cross-Domain Orchestrator',
+      desc: 'Feature/App initiates through Cross-Domain Orchestrator App to orchestrate across domains',
+      nodes: [
+        { id: 'bd-feature', cls: 'bd-on' },
+        { id: 'bd-cdo', cls: 'bd-purple' },
+        { id: 'bd-vlm', cls: 'bd-on' },
+        { id: 'bd-determinator', cls: 'bd-amber' }
+      ]
+    });
+  } else {
+    steps.push({
+      title: 'Caller Invocation',
+      desc: domainOrch ? 'Feature/App initiates multi-zone staged request' : 'Feature/App initiates single-zone request',
+      nodes: [
+        { id: 'bd-feature', cls: 'bd-on' },
+        { id: 'bd-vlm', cls: 'bd-on' },
+        { id: 'bd-determinator', cls: 'bd-amber' }
+      ]
+    });
+  }
+
+  // Step 2: Northbound API
+  steps.push({
+    title: 'Northbound API Boundary',
+    desc: 'Typed immutable Request passes through Northbound API contract',
+    nodes: [
+      { id: 'bd-nb', cls: 'bd-on' },
+      { id: 'bd-vlm', cls: 'bd-on' },
+      { id: 'bd-determinator', cls: 'bd-amber' }
+    ]
+  });
+
+  // Step 3: Domain Capability Orchestrator (if multi-zone/staged op)
+  if (domainOrch || isCrossDomainOrch) {
+    steps.push({
+      title: 'Domain Capability Orchestrator',
+      desc: 'Intra-domain multi-zone sequencing orchestrated via Manager NB API',
+      nodes: [
+        { id: 'bd-dco', cls: 'bd-purple' },
+        { id: 'bd-vlm', cls: 'bd-on' },
+        { id: 'bd-determinator', cls: 'bd-amber' }
+      ]
+    });
+  }
+
+  // Step 4: Capability Manager & Phase 1 Arbitration
+  steps.push({
+    title: 'Phase 1: Arbitration',
+    desc: 'Capability Manager arbitrates RequestSource priority tier (BR-005/006)',
+    nodes: [
+      { id: 'bd-mgr', cls: 'bd-on' },
+      { id: 'bd-phase-1', cls: 'bd-on' },
+      { id: 'bd-vlm', cls: 'bd-on' },
+      { id: 'bd-determinator', cls: 'bd-amber' }
+    ]
+  });
+
+  // Step 5: Phase 2 Preconditions (VehicleState)
+  steps.push({
+    title: 'Phase 2: Preconditions',
+    desc: 'Checks VehicleState (power/gear/OTA) from the VehicleStateDeterminator & power policy',
+    nodes: [
+      { id: 'bd-vlm', cls: 'bd-on' },
+      { id: 'bd-determinator', cls: 'bd-amber' },
+      { id: 'bd-vs', cls: 'bd-amber' },
+      { id: 'bd-phase-2', cls: 'bd-on' }
+    ]
+  });
+
+  // Step 6: Phase 3 Safety Case
+  steps.push({
+    title: 'Phase 3: Safety Case',
+    desc: 'Verifies domain-specific safety & anti-pinch limits',
+    nodes: [
+      { id: 'bd-phase-3', cls: 'bd-on' },
+      { id: 'bd-vlm', cls: 'bd-on' },
+      { id: 'bd-determinator', cls: 'bd-amber' }
+    ]
+  });
+
+  // Step 7: Phase 4 Actuator Dispatch
+  if (!success) {
+    steps.push({
+      title: 'Phase 4: Actuator Fault',
+      desc: 'ActuatorPort reports hardware fault/stall on Southbound interface (BR-018)',
+      nodes: [
+        { id: 'bd-phase-4', cls: 'bd-err' },
+        { id: 'bd-sb', cls: 'bd-err' },
+        { id: 'bd-plant', cls: 'bd-err' }
+      ]
+    });
+    // Step 8: Phase 5 Fault Publish & Reply
+    steps.push({
+      title: 'Phase 5: Fault Publish & Return',
+      desc: 'Publishes fault state to EventBus (BR-018) and returns error Response',
+      nodes: [
+        { id: 'bd-phase-5', cls: 'bd-err' },
+        { id: 'bd-eb', cls: 'bd-err' },
+        { id: 'bd-resp', cls: 'bd-err' }
+      ]
+    });
+  } else {
+    steps.push({
+      title: 'Phase 4: Actuator Dispatch',
+      desc: 'ActuatorPort commands physical plant / motor via Southbound API',
+      nodes: [
+        { id: 'bd-phase-4', cls: 'bd-on' },
+        { id: 'bd-sb', cls: 'bd-on' },
+        { id: 'bd-plant', cls: 'bd-on' }
+      ]
+    });
+    // Step 8: Phase 5 Publish & Response
+    steps.push({
+      title: 'Phase 5: Publish & Response',
+      desc: 'Publishes State on EventBus (BR-011) and returns sync Response to caller',
+      nodes: [
+        { id: 'bd-phase-5', cls: 'bd-ok' },
+        { id: 'bd-eb', cls: 'bd-ok' },
+        { id: 'bd-resp', cls: 'bd-ok' }
+      ]
+    });
+  }
+
+  return steps;
+}
+
+function updateAnimSpeed(val) {
+  _animState.speedMs = parseInt(val, 10);
+  const factor = (400 / _animState.speedMs).toFixed(1);
+  const label = document.getElementById('animSpeedLabel');
+  if (label) label.textContent = `${factor}x`;
+  if (_animState.isPlaying) {
+    pauseAnim();
+    playAnim();
+  }
+}
+
+function resetBoundary() {
+  pauseAnim();
+  _animState.currentStepIndex = -1;
+  const svg = _boundarySvg;
+  if (svg) {
+    svg.classList.remove('bd-run');
+    svg.querySelectorAll('.bd-step').forEach(g =>
+      g.classList.remove('bd-on', 'bd-amber', 'bd-purple', 'bd-ok', 'bd-err'));
+  }
+  const badge = document.getElementById('animStepBadge');
+  if (badge) {
+    badge.textContent = _animState.activeOp
+      ? `Ready — ${_animState.activeOp}() (${_animState.success ? 'Normal' : 'Fault'})`
+      : 'Ready — select an operation to run';
+  }
+  const playBtn = document.getElementById('btnDebugPlay');
+  if (playBtn) playBtn.textContent = '▶ Play';
+}
+
+function applyStep(index) {
+  const svg = _boundarySvg;
+  if (!svg || !_animState.steps.length) return;
+
+  if (index < 0 || index >= _animState.steps.length) return;
+  _animState.currentStepIndex = index;
+
+  svg.classList.add('bd-run');
+  // Clear any existing step classes before activating current step
+  svg.querySelectorAll('.bd-step').forEach(g =>
+    g.classList.remove('bd-on', 'bd-amber', 'bd-purple', 'bd-ok', 'bd-err'));
+
+  const step = _animState.steps[index];
+  step.nodes.forEach(n => {
+    const g = svg.querySelector('#' + n.id);
+    if (g) {
+      g.classList.remove('bd-on', 'bd-amber', 'bd-purple', 'bd-ok', 'bd-err');
+      g.classList.add(n.cls);
+    }
+  });
+
+  const badge = document.getElementById('animStepBadge');
+  if (badge) {
+    badge.textContent = `[Step ${index + 1}/${_animState.steps.length}] ${step.title}: ${step.desc}`;
+  }
+}
+
+function stepBoundary(delta = 1) {
+  pauseAnim();
+  if (!_animState.activeOp || !_animState.steps.length) {
+    const cap = catalogData[selectedCap];
+    const ops = (cap && cap.operations) ? cap.operations.map(o => o.name) : ['request'];
+    startBoundaryAnim(ops[0] || 'request', true, false);
+    return;
+  }
+  let nextIdx = _animState.currentStepIndex + delta;
+  if (nextIdx >= _animState.steps.length) {
+    resetBoundary();
+    return;
+  }
+  if (nextIdx < 0) {
+    nextIdx = 0;
+  }
+  applyStep(nextIdx);
+}
+
+function playAnim() {
+  if (!_animState.steps.length) return;
+  _animState.isPlaying = true;
+  const playBtn = document.getElementById('btnDebugPlay');
+  if (playBtn) playBtn.textContent = '⏸ Pause';
+
+  const tick = () => {
+    let nextIdx = _animState.currentStepIndex + 1;
+    if (nextIdx < _animState.steps.length) {
+      applyStep(nextIdx);
+      _animState.timer = setTimeout(tick, _animState.speedMs);
+    } else {
+      pauseAnim();
+      _animState.timer = setTimeout(() => {
+        resetBoundary();
+      }, _animState.speedMs + 600);
+    }
+  };
+  tick();
+}
+
+function pauseAnim() {
+  _animState.isPlaying = false;
+  if (_animState.timer) {
+    clearTimeout(_animState.timer);
+    _animState.timer = null;
+  }
+  const playBtn = document.getElementById('btnDebugPlay');
+  if (playBtn) playBtn.textContent = '▶ Play';
+}
+
+function togglePlayPause() {
+  if (_animState.isPlaying) {
+    pauseAnim();
+  } else {
+    if (!_animState.activeOp) {
+      const cap = catalogData[selectedCap];
+      const ops = (cap && cap.operations) ? cap.operations.map(o => o.name) : ['request'];
+      startBoundaryAnim(ops[0] || 'request', true, true);
+    } else {
+      if (_animState.currentStepIndex >= _animState.steps.length - 1) {
+        resetBoundary();
+      }
+      playAnim();
+    }
+  }
+}
+
+let _startPaused = false;
+
+function toggleStartPaused(val) {
+  _startPaused = !!val;
+}
+
+function startBoundaryAnim(opName, success = true, autoPlay = null) {
+  resetBoundary();
+  _animState.activeOp = opName;
+  _animState.success = success;
+  _animState.steps = buildBoundarySteps(opName, success);
+  const shouldAutoPlay = (autoPlay !== null) ? autoPlay : !_startPaused;
+  if (shouldAutoPlay) {
+    playAnim();
+  } else {
+    applyStep(0);
+  }
+}
+
+function animateBoundary(opName, success) {
+  startBoundaryAnim(opName, success);
+}
+
+// ── vi keyboard navigation for boundary diagrams ─────────
+window.addEventListener('keydown', (e) => {
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) {
+    return;
+  }
+  if (e.ctrlKey || e.metaKey || e.altKey) {
+    return;
+  }
+  if (_currentDetailTab !== 'boundary') {
+    return;
+  }
+
+  const key = e.key.toLowerCase();
+  if (key === 'j' || key === 'l') {
+    e.preventDefault();
+    stepBoundary(1);
+  } else if (key === 'h' || key === 'k') {
+    e.preventDefault();
+    stepBoundary(-1);
+  }
+});
+
+// ── Explorer Tab ─────────────────────────────────────────
+function updateWindowMode() {
+  const mode = document.getElementById('fWindowMode').value;
+  document.getElementById('fWindowSingle').style.display = (mode === 'SINGLE') ? '' : 'none';
+  document.getElementById('fWindowOrch').style.display   = (mode === 'SINGLE') ? 'none' : '';
+}
+
+function updateExplorerFields() {
+  const cap = document.getElementById('explorerCap').value;
+  const el = document.getElementById('explorerFields');
+  if (cap === 'seat') {
+    el.innerHTML = `
+      <div class="control-row">
+        <label>Direction</label>
+        <select id="fDirection"><option>FORWARD</option><option>REARWARD</option></select>
+        <label>Steps</label>
+        <input type="number" id="fSteps" value="1" min="1" max="15" style="width:70px">
+        <label>or Target mm</label>
+        <input type="number" id="fTargetMM" placeholder="250–400" min="250" max="400" style="width:90px">
+      </div>`;
+  } else if (cap === 'window') {
+    el.innerHTML = `
+      <div class="control-row">
+        <label>Mode</label>
+        <select id="fWindowMode" onchange="updateWindowMode()">
+          <option value="SINGLE">Single zone (Capability API — moveWindow)</option>
+          <option value="CASCADE_OPEN">🎛️ Cascade Open (Orchestrator API — front row → rear row)</option>
+          <option value="CASCADE_CLOSE">🎛️ Cascade Close (Orchestrator API — rear row → front row)</option>
+          <option value="SYNC">🎛️ Sync All (Orchestrator API — all 4 zones concurrently)</option>
+        </select>
+      </div>
+      <div class="control-row" id="fWindowSingle">
+        <label>Zone</label>
+        <select id="fZone">
+          <option>DRIVER_FRONT</option><option>PASSENGER_FRONT</option>
+          <option>DRIVER_REAR</option><option>PASSENGER_REAR</option>
+        </select>
+        <label>Target %</label>
+        <input type="range" id="fTargetPct" min="0" max="100" value="50" style="width:150px"
+               oninput="document.getElementById('fTargetPctVal').textContent=this.value+'%'">
+        <span id="fTargetPctVal" style="font-size:13px; min-width:36px;">50%</span>
+      </div>
+      <div class="control-row" id="fWindowOrch" style="display:none">
+        <label>Target %</label>
+        <input type="range" id="fOrchTargetPct" min="0" max="100" value="100" style="width:150px"
+               oninput="document.getElementById('fOrchTargetPctVal').textContent=this.value+'%'">
+        <span id="fOrchTargetPctVal" style="font-size:13px; min-width:36px;">100%</span>
+        <span style="font-size:11.5px; color:var(--text2); margin-left:12px;">
+          Routes through <em>WindowCapabilityOrchestrator</em> → <em>WindowManager.moveWindow()</em> per zone.
+        </span>
+      </div>`;
+  } else if (cap === 'climate') {
+    el.innerHTML = `
+      <div class="control-row">
+        <label>Temp °C</label>
+        <input type="number" id="fTempC" value="22" min="16" max="30" step="0.5" style="width:80px">
+        <label>Fan</label>
+        <input type="number" id="fFan" value="3" min="0" max="10" style="width:60px">
+        <label>Zone</label>
+        <select id="fZoneClimate"><option>FRONT</option><option>REAR</option><option>ALL</option></select>
+      </div>`;
+  } else if (cap === 'lights') {
+    el.innerHTML = `
+      <div class="control-row">
+        <label>Zone</label>
+        <select id="fZoneLight"><option>AMBIENT</option><option>CABIN</option><option>READING</option><option>ALL</option></select>
+        <label>Level</label>
+        <input type="range" id="fLevel" min="0" max="100" value="50" style="width:120px"
+               oninput="document.getElementById('fLevelVal').textContent=this.value">
+        <span id="fLevelVal" style="font-size:13px;">50</span>
+        <label>Colour</label>
+        <input type="text" id="fColour" value="WHITE" style="width:80px; background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:6px;">
+      </div>`;
+  } else if (cap === 'shade') {
+    el.innerHTML = `
+      <div class="control-row">
+        <label>Mode</label>
+        <select id="fShadeMode" onchange="updateShadeMode()">
+          <option value="SINGLE">Single zone (Capability API)</option>
+          <option value="ORCHESTRATE">🎛️ Group Orchestrate (Domain Capability Orchestrator API)</option>
+        </select>
+      </div>
+      <div class="control-row" id="fShadeSingle">
+        <label>Zone</label>
+        <select id="fShadeZone">
+          <option>WINDSHIELD</option><option>DRIVER_FRONT</option><option>PASSENGER_FRONT</option>
+          <option>DRIVER_REAR</option><option>PASSENGER_REAR</option><option>REAR_WINDOW</option>
+        </select>
+        <label>Operation</label>
+        <select id="fShadeOp" onchange="updateShadeOp()">
+          <option value="open">Open</option>
+          <option value="close">Close</option>
+          <option value="stop">Stop</option>
+          <option value="set-position">Set Position</option>
+          <option value="lockout">Set Lockout</option>
+        </select>
+      </div>
+      <div class="control-row" id="fShadeLockoutRow" style="display:none">
+        <label>Lockout</label>
+        <select id="fShadeLockout"><option value="true">ON</option><option value="false">OFF</option></select>
+      </div>
+      <div class="control-row" id="fShadePositionRow" style="display:none">
+        <label>Target %</label>
+        <input type="range" id="fShadeTargetPct" min="0" max="100" value="50" style="width:150px"
+               oninput="document.getElementById('fShadeTargetPctVal').textContent=this.value+'%'">
+        <span id="fShadeTargetPctVal" style="font-size:13px; min-width:36px;">50%</span>
+      </div>
+      <div class="control-row" id="fShadeOrch" style="display:none">
+        <label>Group</label>
+        <select id="fShadeGroup">
+          <option value="FRONT">Front (Windshield, Front DriverSide/PassengerSide)</option>
+          <option value="REAR">Rear (Rear DriverSide/PassengerSide, Rear Window)</option>
+          <option value="INTERLOCKED">Interlocked (3 zones)</option>
+          <option value="NON_INTERLOCKED">Non-interlocked (Rear DriverSide/PassengerSide, Rear Window)</option>
+          <option value="ALL">All 6 zones</option>
+        </select>
+        <label>Operation</label>
+        <select id="fShadeGroupOp" onchange="updateShadeGroupOp()">
+          <option value="OPEN">Open</option>
+          <option value="CLOSE">Close</option>
+          <option value="STOP">Stop</option>
+          <option value="SET_POSITION">Set Position</option>
+          <option value="LOCKOUT">Set Lockout</option>
+        </select>
+        <span style="font-size:11.5px; color:var(--text2); margin-left:12px;">
+          Routes through <em>WindowShadeCapabilityOrchestrator</em> → per-zone <em>WindowShadeManager</em>.
+        </span>
+      </div>
+      <div class="control-row" id="fShadeOrchTargetRow" style="display:none">
+        <label>Target %</label>
+        <input type="range" id="fShadeOrchTargetPct" min="0" max="100" value="50" style="width:150px"
+               oninput="document.getElementById('fShadeOrchTargetPctVal').textContent=this.value+'%'">
+        <span id="fShadeOrchTargetPctVal" style="font-size:13px; min-width:36px;">50%</span>
+      </div>
+      <div class="control-row" id="fShadeOrchLockoutRow" style="display:none">
+        <label>Lockout</label>
+        <select id="fShadeOrchLockout"><option value="true">ON</option><option value="false">OFF</option></select>
+      </div>`;
+  }
+}
+
+function updateShadeMode() {
+  const mode = document.getElementById('fShadeMode').value;
+  document.getElementById('fShadeSingle').style.display = (mode === 'SINGLE') ? '' : 'none';
+  document.getElementById('fShadeOrch').style.display = (mode === 'ORCHESTRATE') ? '' : 'none';
+  if (mode === 'SINGLE') updateShadeOp(); else updateShadeGroupOp();
+}
+
+function updateShadeOp() {
+  const op = document.getElementById('fShadeOp').value;
+  document.getElementById('fShadeLockoutRow').style.display = (op === 'lockout') ? '' : 'none';
+  document.getElementById('fShadePositionRow').style.display = (op === 'set-position') ? '' : 'none';
+}
+
+function updateShadeGroupOp() {
+  const op = document.getElementById('fShadeGroupOp').value;
+  document.getElementById('fShadeOrchLockoutRow').style.display = (op === 'LOCKOUT') ? '' : 'none';
+  document.getElementById('fShadeOrchTargetRow').style.display = (op === 'SET_POSITION') ? '' : 'none';
+}
+
+async function executeCommand() {
+  const cap = document.getElementById('explorerCap').value;
+  const source = document.getElementById('explorerSource').value;
+  let url, body;
+
+  if (cap === 'seat') {
+    const targetMM = document.getElementById('fTargetMM')?.value;
+    if (targetMM) {
+      url = '/vehicle/seat/move_to';
+      body = { source, target_mm: parseInt(targetMM) };
+    } else {
+      url = '/vehicle/seat/move';
+      body = { source, direction: document.getElementById('fDirection').value,
+               steps: parseInt(document.getElementById('fSteps').value) };
+    }
+  } else if (cap === 'window') {
+    const wmode = document.getElementById('fWindowMode')?.value || 'SINGLE';
+    if (wmode === 'SINGLE') {
+      url = '/vehicle/window/move';
+      body = { source, zone: document.getElementById('fZone').value,
+               target_pct: parseFloat(document.getElementById('fTargetPct').value) };
+    } else {
+      // Route through the Window Domain Capability Orchestrator.
+      url = '/vehicle/window/orchestrate';
+      body = { source, mode: wmode,
+               target_pct: parseFloat(document.getElementById('fOrchTargetPct').value) };
+    }
+  } else if (cap === 'climate') {
+    url = '/vehicle/climate/set';
+    body = { source, temp_c: parseFloat(document.getElementById('fTempC').value),
+             fan_speed: parseInt(document.getElementById('fFan').value),
+             zone: document.getElementById('fZoneClimate').value };
+  } else if (cap === 'lights') {
+    url = '/vehicle/lights/set';
+    body = { source, zone: document.getElementById('fZoneLight').value,
+             level: parseInt(document.getElementById('fLevel').value),
+             colour: document.getElementById('fColour').value };
+  } else if (cap === 'shade') {
+    const mode = document.getElementById('fShadeMode')?.value || 'SINGLE';
+    if (mode === 'SINGLE') {
+      const zone = document.getElementById('fShadeZone').value;
+      const op = document.getElementById('fShadeOp').value;
+      url = `/vehicle/window-shade/${op}`;
+      // These routes resolve `source` from the caller's verified role, same as every
+      // other capability here; the shade routes additionally reject a self-asserted
+      // "source" key in the body (BR-014), so it must be omitted.
+      if (op === 'lockout') {
+        body = { zone, lockout: document.getElementById('fShadeLockout').value === 'true' };
+      } else if (op === 'set-position') {
+        body = { zone, target_pct: parseFloat(document.getElementById('fShadeTargetPct').value) };
+      } else {
+        body = { zone };
+      }
+    } else {
+      // Route through the Window Shade Domain Capability Orchestrator.
+      const group = document.getElementById('fShadeGroup').value;
+      const gop = document.getElementById('fShadeGroupOp').value;
+      if (gop === 'LOCKOUT') {
+        url = '/vehicle/window-shade/orchestrate-lockout';
+        body = { group, lockout: document.getElementById('fShadeOrchLockout').value === 'true' };
+      } else {
+        url = '/vehicle/window-shade/orchestrate';
+        body = { group, operation: gop };
+        if (gop === 'SET_POSITION') {
+          body.target_pct = parseFloat(document.getElementById('fShadeOrchTargetPct').value);
+        }
+      }
+    }
+  }
+
+  try {
+    const resp = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+    const data = await resp.json();
+    document.getElementById('explorerResult').textContent = JSON.stringify(data, null, 2);
+    // Orchestrator responses include per_zone results; summarise them in the log.
+    if (data.per_zone) {
+      const summary = Object.entries(data.per_zone)
+        .map(([z, s]) => {
+          const pct = (typeof s.position_pct === 'number') ? `${Math.round(s.position_pct)}%` : '?%';
+          return `${z}=${s.status}${s.reason ? `(${s.reason})` : ''}@${pct}`;
+        })
+        .join(' · ');
+      addLog(`[${cap.toUpperCase()}] ${url} → ${data.status} (stage ${data.active_stage_index}) · ${summary}`);
+    } else {
+      const reasonSuffix = data.reason ? ` (${data.reason})` : '';
+      addLog(`[${cap.toUpperCase()}] ${url} → ${data.status || data.ok || 'OK'}${reasonSuffix}`);
+    }
+  } catch(e) {
+    document.getElementById('explorerResult').textContent = 'Error: ' + e.message;
+  }
+}
+
+function addLog(msg) {
+  const ts = new Date().toLocaleTimeString();
+  eventLog.unshift(`[${ts}] ${msg}`);
+  if (eventLog.length > 50) eventLog.pop();
+  document.getElementById('explorerLog').textContent = eventLog.join('\n');
+}
+
+// ── Transfer Function Model Tab ──────────────────────────
+async function loadModel() {
+  const cap = document.getElementById('modelCap').value;
+  try {
+    const resp = await fetch(`/vehicle/transfer-function/${cap}`);
+    const data = await resp.json();
+    if (data.error) { alert(data.error); return; }
+
+    // Render parameters
+    const paramsEl = document.getElementById('modelParams');
+    paramsEl.innerHTML = Object.entries(data.params).map(([k,v]) => `
+      <div class="param-item"><div class="key">${k}</div><div class="value">${typeof v==='number'?v.toFixed(4):v}</div></div>`).join('');
+
+    // Draw trajectory chart
+    drawTrajectory(data.trajectory);
+  } catch(e) { alert('Failed to load model: ' + e.message); }
+}
+
+function drawTrajectory(points) {
+  const canvas = document.getElementById('trajectoryChart');
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * 2;
+  canvas.height = rect.height * 2;
+  ctx.scale(2, 2);
+  const W = rect.width, H = rect.height;
+  ctx.clearRect(0, 0, W, H);
+
+  if (!points || points.length < 2) return;
+
+  const pad = { t: 20, r: 20, b: 30, l: 50 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+
+  const times = points.map(p => p.time_s);
+  const maxT = Math.max(...times) || 1;
+  const positions = points.map(p => p.position);
+  const velocities = points.map(p => p.velocity);
+  const forces = points.map(p => p.force);
+  const maxPos = Math.max(...positions.map(Math.abs)) || 1;
+  const maxVel = Math.max(...velocities.map(Math.abs)) || 1;
+  const maxForce = Math.max(...forces.map(Math.abs)) || 1;
+
+  // Axes
+  ctx.strokeStyle = '#30363d'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, H-pad.b);
+  ctx.lineTo(W-pad.r, H-pad.b); ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = '#8b949e'; ctx.font = '10px sans-serif';
+  ctx.fillText('0', pad.l-12, H-pad.b+4);
+  ctx.fillText(maxT.toFixed(1)+'s', W-pad.r-20, H-pad.b+14);
+  ctx.fillText(maxPos.toFixed(0), pad.l-40, pad.t+10);
+
+  function plotLine(data, maxVal, color) {
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath();
+    data.forEach((v, i) => {
+      const x = pad.l + (times[i]/maxT) * pw;
+      const y = pad.t + ph - (v/maxVal) * ph * 0.9;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  }
+
+  plotLine(positions, maxPos, '#58a6ff');
+  plotLine(velocities, maxVel, '#3fb950');
+  plotLine(forces, maxForce, '#f0883e');
+}
+
+// ── SSE connection for live events ───────────────────────
+function connectSSE() {
+  const es = new EventSource('/vehicle/events');
+  es.onmessage = (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      addLog(`[SSE] ${d.topic}: ${JSON.stringify(d.payload).substring(0, 100)}`);
+    } catch(_) {}
+  };
+}
+
+// ── Init ─────────────────────────────────────────────────
+loadCatalog();
+updateExplorerFields();
+connectSSE();
+</script>
+</body>
+</html>
