@@ -104,7 +104,6 @@ Run the tests:
 PYTHONPATH=src .venv/bin/python -m pytest tests -q   # pytest comes from requirements.txt via ./bootstrap.sh
 ```
 
-
 ## Standards: VSS and VDM
 
 Two COVESA standards are pinned as git submodules. They do different jobs, and
