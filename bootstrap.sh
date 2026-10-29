@@ -35,6 +35,13 @@ command -v uv >/dev/null 2>&1 || {
 }
 cd "$REPO_ROOT"
 
+# The COVESA standards are git submodules. The generated artifacts are checked in,
+# but the submodules are needed to regenerate or verify them.
+if [ -f .gitmodules ] && [ -e .git ]; then
+    echo "==> Initializing standards submodules"
+    git submodule update --init --depth 1 --quiet || true
+fi
+
 if [ -L .venv ]; then
     echo "ERROR: .venv is a symlink to a shared environment; refusing to rebuild it standalone." >&2
     exit 1

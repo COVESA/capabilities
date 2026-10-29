@@ -1,0 +1,1180 @@
+{
+  "meta": {
+    "standards": {
+      "vss": "6.1",
+      "vdm": "pinned"
+    },
+    "capabilities": [
+      "window"
+    ],
+    "nodes": 57,
+    "edges": 118,
+    "layers": [
+      "capability",
+      "contract",
+      "vss",
+      "vdm",
+      "safety"
+    ]
+  },
+  "nodes": [
+    {
+      "id": "cap:window",
+      "type": "Capability",
+      "label": "Window Movement Control",
+      "layer": "capability",
+      "attributes": {
+        "domain": "body",
+        "api_version": "2.0.0",
+        "asil_tier": "ASIL_B",
+        "state_topic": "WINDOW_STATE",
+        "capability_id": "urn:capability:body:moveWindow",
+        "source": "window.yaml"
+      }
+    },
+    {
+      "id": "contract:window-api",
+      "type": "Contract",
+      "label": "window-api.yaml",
+      "layer": "contract",
+      "attributes": {
+        "schemas": 13,
+        "api_version": "2.0.0"
+      }
+    },
+    {
+      "id": "op:window.canExecuteWindow",
+      "type": "Operation",
+      "label": "canExecuteWindow",
+      "layer": "capability",
+      "attributes": {
+        "transport": "http",
+        "is_async": false,
+        "arbitrated": false,
+        "command": "MoveWindowCommand",
+        "response": "WindowState"
+      }
+    },
+    {
+      "id": "op:window.cascade_close",
+      "type": "Operation",
+      "label": "cascade_close",
+      "layer": "capability",
+      "attributes": {
+        "transport": "in-process",
+        "is_async": true,
+        "arbitrated": true,
+        "command": "WindowSequenceCommand",
+        "response": "WindowSequenceState"
+      }
+    },
+    {
+      "id": "op:window.cascade_open",
+      "type": "Operation",
+      "label": "cascade_open",
+      "layer": "capability",
+      "attributes": {
+        "transport": "in-process",
+        "is_async": true,
+        "arbitrated": true,
+        "command": "WindowSequenceCommand",
+        "response": "WindowSequenceState"
+      }
+    },
+    {
+      "id": "op:window.getWindowState",
+      "type": "Operation",
+      "label": "getWindowState",
+      "layer": "capability",
+      "attributes": {
+        "transport": "http",
+        "is_async": false,
+        "arbitrated": false,
+        "command": "WindowZone",
+        "response": "WindowState"
+      }
+    },
+    {
+      "id": "op:window.getWindowSystemModel",
+      "type": "Operation",
+      "label": "getWindowSystemModel",
+      "layer": "capability",
+      "attributes": {
+        "transport": "http",
+        "is_async": false,
+        "arbitrated": false,
+        "command": "None",
+        "response": "WindowSystemModel"
+      }
+    },
+    {
+      "id": "op:window.moveWindow",
+      "type": "Operation",
+      "label": "moveWindow",
+      "layer": "capability",
+      "attributes": {
+        "transport": "http",
+        "is_async": true,
+        "arbitrated": true,
+        "command": "MoveWindowCommand",
+        "response": "WindowState"
+      }
+    },
+    {
+      "id": "op:window.orchestrate",
+      "type": "Operation",
+      "label": "orchestrate",
+      "layer": "capability",
+      "attributes": {
+        "transport": "http",
+        "is_async": true,
+        "arbitrated": true,
+        "command": "WindowSequenceCommand",
+        "response": "WindowSequenceState"
+      }
+    },
+    {
+      "id": "op:window.releaseWindow",
+      "type": "Operation",
+      "label": "releaseWindow",
+      "layer": "capability",
+      "attributes": {
+        "transport": "http",
+        "is_async": false,
+        "arbitrated": false,
+        "command": "str",
+        "response": "None"
+      }
+    },
+    {
+      "id": "op:window.sync_all",
+      "type": "Operation",
+      "label": "sync_all",
+      "layer": "capability",
+      "attributes": {
+        "transport": "in-process",
+        "is_async": true,
+        "arbitrated": true,
+        "command": "WindowSequenceCommand",
+        "response": "WindowSequenceState"
+      }
+    },
+    {
+      "id": "port:window.get_window_position",
+      "type": "SouthboundPort",
+      "label": "get_window_position",
+      "layer": "capability",
+      "attributes": {}
+    },
+    {
+      "id": "port:window.move_window",
+      "type": "SouthboundPort",
+      "label": "move_window",
+      "layer": "capability",
+      "attributes": {}
+    },
+    {
+      "id": "req:REQ-WIN-001",
+      "type": "Requirement",
+      "label": "REQ-WIN-001",
+      "layer": "safety",
+      "attributes": {
+        "statement": "The window shall move to the commanded target position (0-100%) within 4 seconds."
+      }
+    },
+    {
+      "id": "req:REQ-WIN-002",
+      "type": "Requirement",
+      "label": "REQ-WIN-002",
+      "layer": "safety",
+      "attributes": {
+        "statement": "The window shall reverse direction if pinch resistance exceeds 100 N."
+      }
+    },
+    {
+      "id": "req:REQ-WIN-003",
+      "type": "Requirement",
+      "label": "REQ-WIN-003",
+      "layer": "safety",
+      "attributes": {
+        "statement": "Commands shall be inhibited if vehicle power is OFF or supply voltage is below 12.0 V."
+      }
+    },
+    {
+      "id": "req:REQ-WIN-004",
+      "type": "Requirement",
+      "label": "REQ-WIN-004",
+      "layer": "safety",
+      "attributes": {
+        "statement": "The capability shall publish its state in VSS terms, quantized to the datatypes the pinned standard declares."
+      }
+    },
+    {
+      "id": "schema:MoveWindowCommand",
+      "type": "Schema",
+      "label": "MoveWindowCommand",
+      "layer": "contract",
+      "attributes": {}
+    },
+    {
+      "id": "schema:RequestSource",
+      "type": "Schema",
+      "label": "RequestSource",
+      "layer": "contract",
+      "attributes": {}
+    },
+    {
+      "id": "schema:WindowGroup",
+      "type": "Schema",
+      "label": "WindowGroup",
+      "layer": "contract",
+      "attributes": {}
+    },
+    {
+      "id": "schema:WindowInhibitReason",
+      "type": "Schema",
+      "label": "WindowInhibitReason",
+      "layer": "contract",
+      "attributes": {}
+    },
+    {
+      "id": "schema:WindowSequenceMode",
+      "type": "Schema",
+      "label": "WindowSequenceMode",
+      "layer": "contract",
+      "attributes": {}
+    },
+    {
+      "id": "schema:WindowSequenceRequest",
+      "type": "Schema",
+      "label": "WindowSequenceRequest",
+      "layer": "contract",
+      "attributes": {}
+    },
+    {
+      "id": "schema:WindowSequenceStage",
+      "type": "Schema",
+      "label": "WindowSequenceStage",
+      "layer": "contract",
+      "attributes": {}
+    },
+    {
+      "id": "schema:WindowSequenceState",
+      "type": "Schema",
+      "label": "WindowSequenceState",
+      "layer": "contract",
+      "attributes": {}
+    },
+    {
+      "id": "schema:WindowSequenceStatus",
+      "type": "Schema",
+      "label": "WindowSequenceStatus",
+      "layer": "contract",
+      "attributes": {}
+    },
+    {
+      "id": "schema:WindowState",
+      "type": "Schema",
+      "label": "WindowState",
+      "layer": "contract",
+      "attributes": {}
+    },
+    {
+      "id": "schema:WindowStatus",
+      "type": "Schema",
+      "label": "WindowStatus",
+      "layer": "contract",
+      "attributes": {}
+    },
+    {
+      "id": "schema:WindowSystemModel",
+      "type": "Schema",
+      "label": "WindowSystemModel",
+      "layer": "contract",
+      "attributes": {}
+    },
+    {
+      "id": "schema:WindowZone",
+      "type": "Schema",
+      "label": "WindowZone",
+      "layer": "contract",
+      "attributes": {}
+    },
+    {
+      "id": "test:test_http_can_execute_has_no_side_effects",
+      "type": "TestCase",
+      "label": "test_http_can_execute_has_no_side_effects",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
+      "id": "test:test_http_get_window_state_reads_a_zone",
+      "type": "TestCase",
+      "label": "test_http_get_window_state_reads_a_zone",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
+      "id": "test:test_http_model_introspection",
+      "type": "TestCase",
+      "label": "test_http_model_introspection",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
+      "id": "test:test_http_move_route",
+      "type": "TestCase",
+      "label": "test_http_move_route",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
+      "id": "test:test_http_orchestrate_cascade",
+      "type": "TestCase",
+      "label": "test_http_orchestrate_cascade",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
+      "id": "test:test_http_release_window_after_move",
+      "type": "TestCase",
+      "label": "test_http_release_window_after_move",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
+      "id": "test:test_move_window_via_northbound_api",
+      "type": "TestCase",
+      "label": "test_move_window_via_northbound_api",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
+      "id": "test:test_pinch_triggers_auto_reverse",
+      "type": "TestCase",
+      "label": "test_pinch_triggers_auto_reverse",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
+      "id": "test:test_precondition_inhibits_when_power_off",
+      "type": "TestCase",
+      "label": "test_precondition_inhibits_when_power_off",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
+      "id": "test:test_vss_endpoint_reports_the_moved_zone",
+      "type": "TestCase",
+      "label": "test_vss_endpoint_reports_the_moved_zone",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
+      "id": "test:test_vss_single_signal_endpoint",
+      "type": "TestCase",
+      "label": "test_vss_single_signal_endpoint",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
+      "id": "vdm:Door_InstanceTag",
+      "type": "VdmType",
+      "label": "Door_InstanceTag",
+      "layer": "vdm",
+      "attributes": {
+        "vspec_fqn": "Vehicle.Cabin.Door"
+      }
+    },
+    {
+      "id": "vdm:Window.isOpen",
+      "type": "VdmField",
+      "label": "Window.isOpen",
+      "layer": "vdm",
+      "attributes": {
+        "returns": "Boolean",
+        "vspec_fqn": "Vehicle.Cabin.Door.Window.IsOpen"
+      }
+    },
+    {
+      "id": "vdm:Window.position",
+      "type": "VdmField",
+      "label": "Window.position",
+      "layer": "vdm",
+      "attributes": {
+        "returns": "UInt8",
+        "vspec_fqn": "Vehicle.Cabin.Door.Window.Position"
+      }
+    },
+    {
+      "id": "vdm:Window.switch",
+      "type": "VdmField",
+      "label": "Window.switch",
+      "layer": "vdm",
+      "attributes": {
+        "returns": "Vehicle_Cabin_Door_Window_Switch_Enum",
+        "vspec_fqn": "Vehicle.Cabin.Door.Window.Switch"
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.IsOpen",
+      "type": "VssSignal",
+      "label": "IsOpen",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Door.Row1.DriverSide.Window.IsOpen",
+        "datatype": "boolean",
+        "unit": null,
+        "signal_type": "actuator",
+        "min": null,
+        "max": null
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.Position",
+      "type": "VssSignal",
+      "label": "Position",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Door.Row1.DriverSide.Window.Position",
+        "datatype": "uint8",
+        "unit": "percent",
+        "signal_type": "actuator",
+        "min": 0.0,
+        "max": 100.0
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.Switch",
+      "type": "VssSignal",
+      "label": "Switch",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Door.Row1.DriverSide.Window.Switch",
+        "datatype": "string",
+        "unit": null,
+        "signal_type": "actuator",
+        "min": null,
+        "max": null
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.IsOpen",
+      "type": "VssSignal",
+      "label": "IsOpen",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Door.Row1.PassengerSide.Window.IsOpen",
+        "datatype": "boolean",
+        "unit": null,
+        "signal_type": "actuator",
+        "min": null,
+        "max": null
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.Position",
+      "type": "VssSignal",
+      "label": "Position",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Door.Row1.PassengerSide.Window.Position",
+        "datatype": "uint8",
+        "unit": "percent",
+        "signal_type": "actuator",
+        "min": 0.0,
+        "max": 100.0
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.Switch",
+      "type": "VssSignal",
+      "label": "Switch",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Door.Row1.PassengerSide.Window.Switch",
+        "datatype": "string",
+        "unit": null,
+        "signal_type": "actuator",
+        "min": null,
+        "max": null
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.IsOpen",
+      "type": "VssSignal",
+      "label": "IsOpen",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Door.Row2.DriverSide.Window.IsOpen",
+        "datatype": "boolean",
+        "unit": null,
+        "signal_type": "actuator",
+        "min": null,
+        "max": null
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.Position",
+      "type": "VssSignal",
+      "label": "Position",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Door.Row2.DriverSide.Window.Position",
+        "datatype": "uint8",
+        "unit": "percent",
+        "signal_type": "actuator",
+        "min": 0.0,
+        "max": 100.0
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.Switch",
+      "type": "VssSignal",
+      "label": "Switch",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Door.Row2.DriverSide.Window.Switch",
+        "datatype": "string",
+        "unit": null,
+        "signal_type": "actuator",
+        "min": null,
+        "max": null
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.IsOpen",
+      "type": "VssSignal",
+      "label": "IsOpen",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Door.Row2.PassengerSide.Window.IsOpen",
+        "datatype": "boolean",
+        "unit": null,
+        "signal_type": "actuator",
+        "min": null,
+        "max": null
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.Position",
+      "type": "VssSignal",
+      "label": "Position",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Door.Row2.PassengerSide.Window.Position",
+        "datatype": "uint8",
+        "unit": "percent",
+        "signal_type": "actuator",
+        "min": 0.0,
+        "max": 100.0
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.Switch",
+      "type": "VssSignal",
+      "label": "Switch",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Door.Row2.PassengerSide.Window.Switch",
+        "datatype": "string",
+        "unit": null,
+        "signal_type": "actuator",
+        "min": null,
+        "max": null
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "cap:window",
+      "relation": "ANCHORS",
+      "target": "vdm:Door_InstanceTag"
+    },
+    {
+      "source": "cap:window",
+      "relation": "ANCHORS",
+      "target": "vdm:Window.isOpen"
+    },
+    {
+      "source": "cap:window",
+      "relation": "ANCHORS",
+      "target": "vdm:Window.position"
+    },
+    {
+      "source": "cap:window",
+      "relation": "ANCHORS",
+      "target": "vdm:Window.switch"
+    },
+    {
+      "source": "cap:window",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.Switch"
+    },
+    {
+      "source": "cap:window",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.Switch"
+    },
+    {
+      "source": "cap:window",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.Switch"
+    },
+    {
+      "source": "cap:window",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.Switch"
+    },
+    {
+      "source": "cap:window",
+      "relation": "HAS_CONTRACT",
+      "target": "contract:window-api"
+    },
+    {
+      "source": "cap:window",
+      "relation": "HAS_REQUIREMENT",
+      "target": "req:REQ-WIN-001"
+    },
+    {
+      "source": "cap:window",
+      "relation": "HAS_REQUIREMENT",
+      "target": "req:REQ-WIN-002"
+    },
+    {
+      "source": "cap:window",
+      "relation": "HAS_REQUIREMENT",
+      "target": "req:REQ-WIN-003"
+    },
+    {
+      "source": "cap:window",
+      "relation": "HAS_REQUIREMENT",
+      "target": "req:REQ-WIN-004"
+    },
+    {
+      "source": "cap:window",
+      "relation": "PROVIDES",
+      "target": "op:window.canExecuteWindow"
+    },
+    {
+      "source": "cap:window",
+      "relation": "PROVIDES",
+      "target": "op:window.cascade_close"
+    },
+    {
+      "source": "cap:window",
+      "relation": "PROVIDES",
+      "target": "op:window.cascade_open"
+    },
+    {
+      "source": "cap:window",
+      "relation": "PROVIDES",
+      "target": "op:window.getWindowState"
+    },
+    {
+      "source": "cap:window",
+      "relation": "PROVIDES",
+      "target": "op:window.getWindowSystemModel"
+    },
+    {
+      "source": "cap:window",
+      "relation": "PROVIDES",
+      "target": "op:window.moveWindow"
+    },
+    {
+      "source": "cap:window",
+      "relation": "PROVIDES",
+      "target": "op:window.orchestrate"
+    },
+    {
+      "source": "cap:window",
+      "relation": "PROVIDES",
+      "target": "op:window.releaseWindow"
+    },
+    {
+      "source": "cap:window",
+      "relation": "PROVIDES",
+      "target": "op:window.sync_all"
+    },
+    {
+      "source": "cap:window",
+      "relation": "REQUIRES",
+      "target": "port:window.get_window_position"
+    },
+    {
+      "source": "cap:window",
+      "relation": "REQUIRES",
+      "target": "port:window.move_window"
+    },
+    {
+      "source": "contract:window-api",
+      "relation": "HAS_SCHEMA",
+      "target": "schema:MoveWindowCommand"
+    },
+    {
+      "source": "contract:window-api",
+      "relation": "HAS_SCHEMA",
+      "target": "schema:RequestSource"
+    },
+    {
+      "source": "contract:window-api",
+      "relation": "HAS_SCHEMA",
+      "target": "schema:WindowGroup"
+    },
+    {
+      "source": "contract:window-api",
+      "relation": "HAS_SCHEMA",
+      "target": "schema:WindowInhibitReason"
+    },
+    {
+      "source": "contract:window-api",
+      "relation": "HAS_SCHEMA",
+      "target": "schema:WindowSequenceMode"
+    },
+    {
+      "source": "contract:window-api",
+      "relation": "HAS_SCHEMA",
+      "target": "schema:WindowSequenceRequest"
+    },
+    {
+      "source": "contract:window-api",
+      "relation": "HAS_SCHEMA",
+      "target": "schema:WindowSequenceStage"
+    },
+    {
+      "source": "contract:window-api",
+      "relation": "HAS_SCHEMA",
+      "target": "schema:WindowSequenceState"
+    },
+    {
+      "source": "contract:window-api",
+      "relation": "HAS_SCHEMA",
+      "target": "schema:WindowSequenceStatus"
+    },
+    {
+      "source": "contract:window-api",
+      "relation": "HAS_SCHEMA",
+      "target": "schema:WindowState"
+    },
+    {
+      "source": "contract:window-api",
+      "relation": "HAS_SCHEMA",
+      "target": "schema:WindowStatus"
+    },
+    {
+      "source": "contract:window-api",
+      "relation": "HAS_SCHEMA",
+      "target": "schema:WindowSystemModel"
+    },
+    {
+      "source": "contract:window-api",
+      "relation": "HAS_SCHEMA",
+      "target": "schema:WindowZone"
+    },
+    {
+      "source": "op:window.canExecuteWindow",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.Position"
+    },
+    {
+      "source": "op:window.canExecuteWindow",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.Position"
+    },
+    {
+      "source": "op:window.canExecuteWindow",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.Position"
+    },
+    {
+      "source": "op:window.canExecuteWindow",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.Position"
+    },
+    {
+      "source": "op:window.canExecuteWindow",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_http_can_execute_has_no_side_effects"
+    },
+    {
+      "source": "op:window.cascade_close",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.Switch"
+    },
+    {
+      "source": "op:window.cascade_close",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.Switch"
+    },
+    {
+      "source": "op:window.cascade_close",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.Switch"
+    },
+    {
+      "source": "op:window.cascade_close",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.Switch"
+    },
+    {
+      "source": "op:window.cascade_close",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.Position"
+    },
+    {
+      "source": "op:window.cascade_close",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.Position"
+    },
+    {
+      "source": "op:window.cascade_close",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.Position"
+    },
+    {
+      "source": "op:window.cascade_close",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.Position"
+    },
+    {
+      "source": "op:window.cascade_open",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.Switch"
+    },
+    {
+      "source": "op:window.cascade_open",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.Switch"
+    },
+    {
+      "source": "op:window.cascade_open",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.Switch"
+    },
+    {
+      "source": "op:window.cascade_open",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.Switch"
+    },
+    {
+      "source": "op:window.cascade_open",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.Position"
+    },
+    {
+      "source": "op:window.cascade_open",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.Position"
+    },
+    {
+      "source": "op:window.cascade_open",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.Position"
+    },
+    {
+      "source": "op:window.cascade_open",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.Position"
+    },
+    {
+      "source": "op:window.cascade_open",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_http_orchestrate_cascade"
+    },
+    {
+      "source": "op:window.getWindowState",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.IsOpen"
+    },
+    {
+      "source": "op:window.getWindowState",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.Position"
+    },
+    {
+      "source": "op:window.getWindowState",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.IsOpen"
+    },
+    {
+      "source": "op:window.getWindowState",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.Position"
+    },
+    {
+      "source": "op:window.getWindowState",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.IsOpen"
+    },
+    {
+      "source": "op:window.getWindowState",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.Position"
+    },
+    {
+      "source": "op:window.getWindowState",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.IsOpen"
+    },
+    {
+      "source": "op:window.getWindowState",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.Position"
+    },
+    {
+      "source": "op:window.getWindowState",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_http_get_window_state_reads_a_zone"
+    },
+    {
+      "source": "op:window.getWindowSystemModel",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_http_model_introspection"
+    },
+    {
+      "source": "op:window.moveWindow",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.Switch"
+    },
+    {
+      "source": "op:window.moveWindow",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.Switch"
+    },
+    {
+      "source": "op:window.moveWindow",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.Switch"
+    },
+    {
+      "source": "op:window.moveWindow",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.Switch"
+    },
+    {
+      "source": "op:window.moveWindow",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.IsOpen"
+    },
+    {
+      "source": "op:window.moveWindow",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.Position"
+    },
+    {
+      "source": "op:window.moveWindow",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.IsOpen"
+    },
+    {
+      "source": "op:window.moveWindow",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.Position"
+    },
+    {
+      "source": "op:window.moveWindow",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.IsOpen"
+    },
+    {
+      "source": "op:window.moveWindow",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.Position"
+    },
+    {
+      "source": "op:window.moveWindow",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.IsOpen"
+    },
+    {
+      "source": "op:window.moveWindow",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.Position"
+    },
+    {
+      "source": "op:window.moveWindow",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_http_move_route"
+    },
+    {
+      "source": "op:window.moveWindow",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_move_window_via_northbound_api"
+    },
+    {
+      "source": "op:window.orchestrate",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.Switch"
+    },
+    {
+      "source": "op:window.orchestrate",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.Switch"
+    },
+    {
+      "source": "op:window.orchestrate",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.Switch"
+    },
+    {
+      "source": "op:window.orchestrate",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.Switch"
+    },
+    {
+      "source": "op:window.orchestrate",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.Position"
+    },
+    {
+      "source": "op:window.orchestrate",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.Position"
+    },
+    {
+      "source": "op:window.orchestrate",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.Position"
+    },
+    {
+      "source": "op:window.orchestrate",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.Position"
+    },
+    {
+      "source": "op:window.orchestrate",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_http_orchestrate_cascade"
+    },
+    {
+      "source": "op:window.releaseWindow",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_http_release_window_after_move"
+    },
+    {
+      "source": "op:window.sync_all",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.Switch"
+    },
+    {
+      "source": "op:window.sync_all",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.Switch"
+    },
+    {
+      "source": "op:window.sync_all",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.Switch"
+    },
+    {
+      "source": "op:window.sync_all",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.Switch"
+    },
+    {
+      "source": "op:window.sync_all",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.Position"
+    },
+    {
+      "source": "op:window.sync_all",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.Position"
+    },
+    {
+      "source": "op:window.sync_all",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.Position"
+    },
+    {
+      "source": "op:window.sync_all",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.Position"
+    },
+    {
+      "source": "req:REQ-WIN-001",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_move_window_via_northbound_api"
+    },
+    {
+      "source": "req:REQ-WIN-002",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_pinch_triggers_auto_reverse"
+    },
+    {
+      "source": "req:REQ-WIN-003",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_precondition_inhibits_when_power_off"
+    },
+    {
+      "source": "req:REQ-WIN-004",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_vss_endpoint_reports_the_moved_zone"
+    },
+    {
+      "source": "req:REQ-WIN-004",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_vss_single_signal_endpoint"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.IsOpen",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:Window.isOpen"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.Position",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:Window.position"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Door.Row1.DriverSide.Window.Switch",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:Window.switch"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.IsOpen",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:Window.isOpen"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.Position",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:Window.position"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Door.Row1.PassengerSide.Window.Switch",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:Window.switch"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.IsOpen",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:Window.isOpen"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.Position",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:Window.position"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Door.Row2.DriverSide.Window.Switch",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:Window.switch"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.IsOpen",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:Window.isOpen"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.Position",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:Window.position"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.Switch",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:Window.switch"
+    }
+  ]
+}

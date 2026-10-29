@@ -1,0 +1,6 @@
+# Pinned COVESA toolchain - needed only to regenerate third_party/generated/*.
+# The runtime and the test suite read the checked-in artifacts and need these too:
+#   uv pip install -r requirements.txt -r requirements-standards.txt
+pyyaml>=6.0
+graphql-core>=3.2
+vss-tools==6.1.0

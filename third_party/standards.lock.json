@@ -1,0 +1,44 @@
+{
+  "lock_version": 1,
+  "updated": "2026-10-29",
+  "note": "Source of truth for pinned COVESA standards. Verified by scripts/vendor_standards.sh and tests/test_standards_pins.py. Do not hand-edit generated artifact hashes; run `make vendor`.",
+  "standards": {
+    "vss": {
+      "repo": "https://github.com/COVESA/vehicle_signal_specification",
+      "ref": "v6.1",
+      "commit": "2817646d1808fc7c470c0432fc7f4ed685e5c9e3",
+      "path": "third_party/vss",
+      "license": "MPL-2.0",
+      "version_label": "6.1",
+      "tool": "vss-tools==6.1.0",
+      "inputs": {
+        "root_vspec": "spec/VehicleSignalSpecification.vspec",
+        "units": "spec/units.yaml",
+        "quantities": "spec/quantities.yaml"
+      },
+      "artifacts": {
+        "vss.json": {
+          "path": "third_party/generated/vss.json",
+          "sha256": "bef9ad501b38edd60e7b903cb39ba5b8f0864a984595b3e901d6efa3f06bdb70"
+        }
+      }
+    },
+    "vdm": {
+      "repo": "https://github.com/COVESA/vdm",
+      "ref": "36bc93936eab097647b52eea377a3374bcf926f5",
+      "commit": "36bc93936eab097647b52eea377a3374bcf926f5",
+      "path": "third_party/vdm",
+      "license": "unresolved",
+      "license_note": "No LICENSE file found in the repository root. Treated as a review gate; see THIRD_PARTY_NOTICES.md.",
+      "inputs": {
+        "spec_glob": "spec/**/*.graphql"
+      },
+      "artifacts": {
+        "vdm.graphql": {
+          "path": "third_party/generated/vdm.graphql",
+          "sha256": "2a3afadc5d5eee7c7a72697f16681685963140b42629a6a8ebb29806e1f2dd99"
+        }
+      }
+    }
+  }
+}

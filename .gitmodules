@@ -1,0 +1,6 @@
+[submodule "third_party/vss"]
+	path = third_party/vss
+	url = https://github.com/COVESA/vehicle_signal_specification
+[submodule "third_party/vdm"]
+	path = third_party/vdm
+	url = https://github.com/COVESA/vdm

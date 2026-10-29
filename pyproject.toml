@@ -15,9 +15,17 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7.4"]
+# Standards grounding: needed to regenerate the pinned artifacts and to run
+# `capability-check`. vss-tools is heavy, so it stays out of the base install.
+standards = [
+    "pyyaml>=6.0",
+    "graphql-core>=3.2",
+    "vss-tools>=6.1,<7",
+]
 
 [project.scripts]
 capability-window-example = "capability_framework.app:main"
+capability-check = "capability_framework.checker.cli:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

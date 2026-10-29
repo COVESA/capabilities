@@ -1,0 +1,70 @@
+name: standards
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Configure submodule depth
+        run: git submodule update --init --recursive --depth 1
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r requirements-standards.txt
+          python -m pip install -e .
+
+      - name: Pinned standards and artifact hashes
+        run: python -m pytest tests/test_standards_pins.py -q
+
+      - name: Generated VSS paths are current
+        run: python scripts/gen_vss_paths.py --check
+
+      - name: Capability rules (strict)
+        run: python -m capability_framework.checker --strict --no-color
+
+      - name: Capability rules (JUnit)
+        if: always()
+        run: python -m capability_framework.checker --format junit > capability-rules.xml
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: capability-rules
+          path: capability-rules.xml
+
+      - name: Tests
+        run: python -m pytest tests -q
+
+  reproducible-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install toolchain
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-standards.txt
+
+      - name: Regenerate and compare
+        run: |
+          ./scripts/vendor_standards.sh
+          git diff --exit-code third_party/generated third_party/standards.lock.json

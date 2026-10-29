@@ -1,0 +1,222 @@
+# Capability catalog entry — window
+#
+# The canonical, machine-checked description of the window capability. Runtime
+# descriptors and the docs catalog are generated from this file.
+#
+# Every `vss.signals` template is expanded per instance and resolved against the
+# PINNED VSS (third_party/standards.lock.json). Every `vdm` reference is resolved
+# against the PINNED VDM. `capability-check --strict` fails the build if either
+# does not resolve, so this file cannot drift from the standards.
+
+capability: window
+id: urn:capability:body:moveWindow
+display_name: Window Movement Control
+description: >
+  Controls vehicle power windows with position targeting, pinch detection, and
+  auto-reverse safety. Supports per-zone operation (driver/passenger, front/rear)
+  with arbitration and vehicle-state preconditions.
+domain: body
+api_version: "2.0.0"
+asil_tier: ASIL_B
+state_topic: WINDOW_STATE
+contract: contracts/window-api.yaml
+docs: docs/windows/move-window.md
+
+southbound_dependencies:
+  - move_window
+  - get_window_position
+
+# ── VSS grounding ─────────────────────────────────────────────────────────
+#
+# Instances are the window-bearing VSS branches. The zone names are the
+# capability's own vocabulary; they are not VSS terms, which keeps the
+# northbound API independent of VSS naming.
+vss:
+  standard: vss
+  instances:
+    DRIVER_FRONT: Vehicle.Cabin.Door.Row1.DriverSide.Window
+    PASSENGER_FRONT: Vehicle.Cabin.Door.Row1.PassengerSide.Window
+    DRIVER_REAR: Vehicle.Cabin.Door.Row2.DriverSide.Window
+    PASSENGER_REAR: Vehicle.Cabin.Door.Row2.PassengerSide.Window
+
+  signals:
+    # VSS models Position as a uint8 percentage (0 = start, 100 = end). The
+    # capability's northbound API keeps a float; the adapter quantizes on the
+    # way out to VSS and this entry records the contract we check against.
+    - id: window.position
+      role: state
+      template: "{instance}.Position"
+      datatype: uint8
+      unit: percent
+      vdm:
+        type: Window
+        field: position
+        intent: read
+
+    - id: window.is_open
+      role: state
+      template: "{instance}.IsOpen"
+      datatype: boolean
+      vdm:
+        type: Window
+        field: isOpen
+        intent: read
+
+    # The only VSS actuator a caller drives. Position is derived from it, so the
+    # capability commands Switch and observes Position.
+    - id: window.switch
+      role: command
+      template: "{instance}.Switch"
+      vdm:
+        type: Window
+        field: switch
+        intent: write
+
+# ── VDM grounding ─────────────────────────────────────────────────────────
+#
+# VDM projects VSS branches as types and carries the instance dimensions as
+# enums. Declaring the zone → instance-tag map here lets the checker prove that
+# every capability zone has a well-formed VDM tag.
+vdm:
+  types:
+    - Window
+    - Door
+  instance_tag:
+    type: Door_InstanceTag
+    dimensions:
+      - dimension1
+      - dimension2
+    map:
+      DRIVER_FRONT:
+        dimension1: ROW1
+        dimension2: DRIVER_SIDE
+      PASSENGER_FRONT:
+        dimension1: ROW1
+        dimension2: PASSENGER_SIDE
+      DRIVER_REAR:
+        dimension1: ROW2
+        dimension2: DRIVER_SIDE
+      PASSENGER_REAR:
+        dimension1: ROW2
+        dimension2: PASSENGER_SIDE
+
+# ── Requirements ──────────────────────────────────────────────────────────
+#
+# An ASIL-tiered capability must state what it shall do and which test proves it.
+# `capability-check` verifies that every `verified_by` names a real test.
+requirements:
+  - id: REQ-WIN-001
+    statement: >
+      The window shall move to the commanded target position (0-100%) within 4 seconds.
+    verified_by: [test_move_window_via_northbound_api]
+  - id: REQ-WIN-002
+    statement: >
+      The window shall reverse direction if pinch resistance exceeds 100 N.
+    verified_by: [test_pinch_triggers_auto_reverse]
+  - id: REQ-WIN-003
+    statement: >
+      Commands shall be inhibited if vehicle power is OFF or supply voltage is below 12.0 V.
+    verified_by: [test_precondition_inhibits_when_power_off]
+  - id: REQ-WIN-004
+    statement: >
+      The capability shall publish its state in VSS terms, quantized to the datatypes
+      the pinned standard declares.
+    verified_by: [test_vss_endpoint_reports_the_moved_zone, test_vss_single_signal_endpoint]
+
+# ── Northbound API ────────────────────────────────────────────────────────
+operations:
+  - name: moveWindow
+    description: Move a single window zone to target (0% = closed, 100% = open)
+    command_type: MoveWindowCommand
+    response_type: WindowState
+    is_async: true
+    requires_arbitration: true
+    preconditions: [POWER_ON, OTA_IDLE, SUPPLY_VOLTAGE_ABOVE_12V]
+    verified_by: [test_http_move_route, test_move_window_via_northbound_api]
+    signals:
+      - window.switch
+      - window.position
+      - window.is_open
+    vdm:
+      - type: Window
+        field: position
+        intent: write
+
+  - name: releaseWindow
+    description: Release the per-zone window lock for a given request_id
+    command_type: str
+    response_type: None
+    is_async: false
+    verified_by: [test_http_release_window_after_move]
+
+  - name: canExecuteWindow
+    description: Pre-flight check - runs the full pipeline with no side effects
+    command_type: MoveWindowCommand
+    response_type: WindowState
+    is_async: false
+    verified_by: [test_http_can_execute_has_no_side_effects]
+    signals:
+      - window.position
+
+  - name: getWindowState
+    description: Read the current state for a zone (position, status, reason)
+    command_type: WindowZone
+    response_type: WindowState
+    is_async: false
+    verified_by: [test_http_get_window_state_reads_a_zone]
+    signals:
+      - window.position
+      - window.is_open
+
+  - name: getWindowSystemModel
+    description: Introspect the physics model parameters the capability is validated against
+    command_type: None
+    response_type: WindowSystemModel
+    is_async: false
+    verified_by: [test_http_model_introspection]
+
+  - name: cascade_open
+    transport: in-process
+    verified_by: [test_http_orchestrate_cascade]
+    description: Orchestration API - open front row first, then rear row (staggers inrush)
+    command_type: WindowSequenceCommand
+    response_type: WindowSequenceState
+    is_async: true
+    requires_arbitration: true
+    signals:
+      - window.switch
+      - window.position
+
+  - name: cascade_close
+    transport: in-process
+    description: Orchestration API - close rear row first, then front row
+    command_type: WindowSequenceCommand
+    response_type: WindowSequenceState
+    is_async: true
+    requires_arbitration: true
+    signals:
+      - window.switch
+      - window.position
+
+  - name: sync_all
+    transport: in-process
+    description: Orchestration API - move all four zones to target in one stage
+    command_type: WindowSequenceCommand
+    response_type: WindowSequenceState
+    is_async: true
+    requires_arbitration: true
+    signals:
+      - window.switch
+      - window.position
+
+  - name: orchestrate
+    description: Orchestration API - execute a caller-supplied staged window sequence
+    command_type: WindowSequenceCommand
+    response_type: WindowSequenceState
+    is_async: true
+    requires_arbitration: true
+    preconditions: [POWER_ON, OTA_IDLE]
+    verified_by: [test_http_orchestrate_cascade]
+    signals:
+      - window.switch
+      - window.position

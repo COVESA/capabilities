@@ -1,0 +1,18 @@
+# Time-boxed exemptions for capability-check findings.
+#
+# An entry suppresses ONE rule on ONE capability (optionally at one location).
+# Every field is required: an exemption without a reason, an owner, and an expiry
+# is not an exemption, it is a permanent blind spot. Expired entries stop
+# suppressing and are reported as CAP-900 errors.
+#
+# Example:
+#
+#   entries:
+#     - rule: CAP-610
+#       capability: window
+#       location: operations.getWindowSystemModel
+#       reason: introspection endpoint test lands with the explorer rewrite
+#       owner: body-domain
+#       expires: 2026-12-31
+
+entries: []

@@ -1,0 +1,27 @@
+# Local hooks: no network, no pinned third-party repos to drift.
+#   uv pip install pre-commit && pre-commit install
+repos:
+  - repo: local
+    hooks:
+      - id: capability-check
+        name: capability rules (pinned VSS + VDM)
+        entry: .venv/bin/python -m capability_framework.checker --strict --no-color
+        language: system
+        pass_filenames: false
+        env:
+          PYTHONPATH: src
+        files: ^(catalog/|contracts/|src/capability_framework/(semantics|checker)/)
+
+      - id: vss-paths-fresh
+        name: generated VSS paths are current
+        entry: .venv/bin/python scripts/gen_vss_paths.py --check
+        language: system
+        pass_filenames: false
+        files: ^(catalog/|third_party/generated/vss\.json)
+
+      - id: standards-pins
+        name: standards pins and artifact hashes
+        entry: .venv/bin/python -m pytest tests/test_standards_pins.py -q
+        language: system
+        pass_filenames: false
+        files: ^third_party/

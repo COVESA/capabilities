@@ -38,7 +38,7 @@ import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from flask import Flask, redirect, send_from_directory, url_for
+from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, url_for
 
 from .bindings import WindowSimulatorPort
 from .capabilities.window import (
@@ -48,17 +48,23 @@ from .capabilities.window import (
     WindowManager,
     WindowZone,
 )
+from .capabilities.window.vss import WindowVssProjector
 from .capabilities.base import RequestSource
 from .events import EventBus, Topics
 from .explorer import create_blueprint as explorer_blueprint
 from .models import WindowMotorModel, WindowMotorParams
 from .northbound import create_blueprint as capabilities_blueprint
+from .semantics import VssCatalog, VssSnapshot, load_capability
 from .vehicle_state import DriveState, OtaState, PowerState, VehicleState
 
 log = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
-CONTRACTS_DIR = Path(__file__).resolve().parents[2] / "contracts"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+CONTRACTS_DIR = REPO_ROOT / "contracts"
+CATALOG_DIR = REPO_ROOT / "catalog" / "capabilities"
+GENERATED_DIR = REPO_ROOT / "third_party" / "generated"
+STANDARDS_LOCK = REPO_ROOT / "third_party" / "standards.lock.json"
 DEFAULT_PORT = 8770
 
 
@@ -115,6 +121,22 @@ class PowerManagerStub:
 
 
 @dataclass
+class VssRuntime:
+    """The live VSS view: the pinned catalog plus the capability's projected signals."""
+
+    bus: EventBus
+    snapshot: VssSnapshot
+    projector: WindowVssProjector
+    catalog: VssCatalog
+
+    def refresh(self) -> None:
+        """Project the latest capability state, in case it predates the subscription."""
+        state = self.bus.last(Topics.WINDOW_STATE)
+        if state is not None:
+            self.snapshot.update(self.projector(state))
+
+
+@dataclass
 class Stack:
     """Every runtime object of the example, wired on one bus and one binding."""
     bus: EventBus
@@ -122,6 +144,7 @@ class Stack:
     power: PowerManagerStub
     window: WindowManager
     window_orchestrator: WindowCapabilityOrchestrator
+    vss: "VssRuntime | None" = None
 
 
 def build_stack(*, role: str = "oem_automation") -> Stack:
@@ -149,9 +172,67 @@ def build_stack(*, role: str = "oem_automation") -> Stack:
                  window=window, window_orchestrator=window_orchestrator)
 
 
+def build_vss_runtime(stack: Stack) -> VssRuntime | None:
+    """
+    Attach a VSS view to the stack, or return None when the pins are not vendored.
+
+    The runtime needs the pinned ``vss.json`` and the window catalog entry. Both are
+    checked-in artifacts, so a normal checkout always has them; an installed wheel
+    without them degrades to "no VSS endpoint" instead of failing to boot.
+    """
+    vss_json = GENERATED_DIR / "vss.json"
+    entry = CATALOG_DIR / "window.yaml"
+    if not vss_json.is_file() or not entry.is_file():
+        log.warning("VSS runtime disabled: run ./scripts/vendor_standards.sh")
+        return None
+
+    catalog = VssCatalog.from_json(vss_json)
+    spec = load_capability(entry)
+    version = None
+    if STANDARDS_LOCK.is_file():
+        import json
+
+        version = json.loads(STANDARDS_LOCK.read_text(encoding="utf-8"))["standards"]["vss"][
+            "version_label"
+        ]
+
+    snapshot = VssSnapshot(catalog=catalog, spec=spec, version=version)
+    projector = WindowVssProjector()
+    stack.bus.subscribe(Topics.WINDOW_STATE, snapshot.handler(projector))
+
+    runtime = VssRuntime(bus=stack.bus, snapshot=snapshot, projector=projector, catalog=catalog)
+    runtime.refresh()
+    return runtime
+
+
+def build_knowledge_graph():
+    """Build the capability/VSS/VDM graph, or None when the pins are not vendored."""
+    try:
+        from .semantics.graph import build_graph
+        from .semantics.vdm import VdmSchema
+    except ImportError:
+        log.warning("Knowledge graph disabled: install the 'standards' extra")
+        return None
+
+    vss_json = GENERATED_DIR / "vss.json"
+    vdm_graphql = GENERATED_DIR / "vdm.graphql"
+    if not vss_json.is_file() or not vdm_graphql.is_file() or not CATALOG_DIR.is_dir():
+        log.warning("Knowledge graph disabled: run ./scripts/vendor_standards.sh")
+        return None
+
+    return build_graph(
+        catalog=CATALOG_DIR,
+        vss=VssCatalog.from_json(vss_json),
+        vdm=VdmSchema.from_sdl_file(vdm_graphql),
+        contracts_dir=CONTRACTS_DIR,
+        vss_version=None,
+    )
+
+
 def create_app(*, role: str = "oem_automation") -> Flask:
     """Build the Flask app: the runnable example."""
     stack = build_stack(role=role)
+    stack.vss = build_vss_runtime(stack)
 
     app = Flask(__name__, static_folder=None)
     app.config["STACK"] = stack
@@ -184,6 +265,75 @@ def create_app(*, role: str = "oem_automation") -> Flask:
     def vehicle_state_view():
         from .vehicle_state import vehicle_state_to_dict
         return vehicle_state_to_dict(stack.vehicle_state.snapshot())
+
+    # ── VSS view of the running capability ───────────────────────────────
+    #
+    # These routes serve the capability's own state, expressed as VSS signals
+    # from the pinned standard. They are not a VISS server: there is no
+    # subscription or access control, only a snapshot for inspection.
+
+    @app.route("/vehicle/vss")
+    def vss_view():
+        runtime = stack.vss
+        if runtime is None:
+            return jsonify({"error": "VSS runtime disabled; run ./scripts/vendor_standards.sh"}), 503
+        runtime.refresh()
+        return jsonify(runtime.snapshot.to_dict())
+
+    # ── Knowledge graph: capabilities, contracts, VSS, VDM ───────────────
+
+    graph_cache: dict[str, object] = {}
+
+    def knowledge_graph():
+        if "graph" not in graph_cache:
+            graph_cache["graph"] = build_knowledge_graph()
+        return graph_cache["graph"]
+
+    @app.route("/vehicle/graph/")
+    def graph_ui():
+        graph = knowledge_graph()
+        if graph is None:
+            return "Knowledge graph unavailable: run ./scripts/vendor_standards.sh", 503
+        return render_template(
+            "knowledge_graph.html",
+            summary=graph.to_dict()["meta"],
+            layer_counts=graph.count_by("layer"),
+        )
+
+    @app.route("/vehicle/graph/model.json")
+    def graph_model():
+        graph = knowledge_graph()
+        if graph is None:
+            return jsonify({"error": "knowledge graph unavailable"}), 503
+        return jsonify(graph.to_dict())
+
+    @app.route("/vehicle/graph/node/<path:node_id>")
+    def graph_node(node_id: str):
+        graph = knowledge_graph()
+        if graph is None:
+            return jsonify({"error": "knowledge graph unavailable"}), 503
+        depth = max(1, min(3, int(request.args.get("depth", 1))))
+        return jsonify(graph.subgraph(node_id, depth=depth).to_dict())
+
+    @app.route("/vehicle/graph/search")
+    def graph_search():
+        graph = knowledge_graph()
+        if graph is None:
+            return jsonify({"error": "knowledge graph unavailable"}), 503
+        query = request.args.get("q", "").strip()
+        results = graph.search(query) if query else []
+        return jsonify({"query": query, "results": [node.to_dict() for node in results]})
+
+    @app.route("/vehicle/vss/<path:signal_path>")
+    def vss_signal(signal_path: str):
+        runtime = stack.vss
+        if runtime is None:
+            return jsonify({"error": "VSS runtime disabled; run ./scripts/vendor_standards.sh"}), 503
+        runtime.refresh()
+        view = runtime.snapshot.signal_view(signal_path)
+        if view is None:
+            return jsonify({"error": f"{signal_path!r} is not a signal in the pinned VSS"}), 404
+        return jsonify(view)
 
     return app
 

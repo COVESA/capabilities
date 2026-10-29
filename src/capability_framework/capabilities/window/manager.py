@@ -34,6 +34,7 @@ from datetime import datetime, timezone
 from typing import Any, Protocol
 
 from ...events import EventBus, Topics
+from ...semantics.vss_paths import WINDOW_POSITION
 from ...southbound import ActuatorError, ActuatorProfile, WindowActuatorPort
 from ...vehicle_state import OtaState, PowerState, VehicleState
 from ..base import (
@@ -127,11 +128,14 @@ class WindowManager(Capability[MoveWindowCommand, WindowState]):
                 response_type="WindowState",
                 is_async=True,
                 requires_arbitration=True,
-                vss_paths=(
-                    "Vehicle.Cabin.Door.Row1.DriverSide.Window.Position",
-                    "Vehicle.Cabin.Door.Row1.PassengerSide.Window.Position",
-                    "Vehicle.Cabin.Door.Row2.DriverSide.Window.Position",
-                    "Vehicle.Cabin.Door.Row2.PassengerSide.Window.Position",
+                vss_paths=tuple(
+                    WINDOW_POSITION[zone.value]
+                    for zone in (
+                        WindowZone.DRIVER_FRONT,
+                        WindowZone.PASSENGER_FRONT,
+                        WindowZone.DRIVER_REAR,
+                        WindowZone.PASSENGER_REAR,
+                    )
                 ),
             ),
             NorthboundOperation(

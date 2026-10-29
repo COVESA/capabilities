@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Capability · VSS · VDM knowledge graph</title>
+<style>
+  :root{
+    --bg:#0f1216; --surface:#161b22; --surface2:#1c232c; --border:#2a323d;
+    --text:#e6edf3; --muted:#8b98a5; --accent:#4aa8ff;
+    --cap:#4aa8ff; --contract:#b18cff; --vss:#39c07a; --vdm:#e2a33c; --safety:#e06c75;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  header{padding:16px 22px;border-bottom:1px solid var(--border);background:var(--surface)}
+  h1{margin:0;font-size:16px;font-weight:600;letter-spacing:.01em}
+  header p{margin:6px 0 0;color:var(--muted);font-size:12.5px}
+  .meta{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
+  .pill{font:11px/1 var(--mono);color:var(--muted);border:1px solid var(--border);
+        border-radius:999px;padding:5px 9px;background:var(--surface2)}
+  .pill b{color:var(--text);font-weight:600}
+  main{display:grid;grid-template-columns:minmax(280px,360px) 1fr;gap:0;height:calc(100vh - 118px)}
+  #nav{border-right:1px solid var(--border);overflow:auto;padding:14px}
+  #detail{overflow:auto;padding:18px 22px}
+  .search{display:flex;gap:8px;margin-bottom:12px}
+  .search input{flex:1;background:var(--surface2);border:1px solid var(--border);
+                color:var(--text);border-radius:7px;padding:8px 10px;font:13px var(--mono)}
+  .search button{background:var(--surface2);border:1px solid var(--border);color:var(--text);
+                 border-radius:7px;padding:8px 12px;cursor:pointer}
+  .search button:hover{border-color:var(--accent)}
+  .layer{margin:14px 0 4px;font:11px/1 var(--mono);letter-spacing:.09em;
+         text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between}
+  .node{display:flex;gap:8px;align-items:baseline;padding:5px 8px;border-radius:6px;
+        cursor:pointer;border:1px solid transparent;word-break:break-all}
+  .node:hover{background:var(--surface2);border-color:var(--border)}
+  .node .id{font:11.5px var(--mono);color:var(--muted)}
+  .dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;margin-top:6px}
+  .l-capability{background:var(--cap)} .l-contract{background:var(--contract)}
+  .l-vss{background:var(--vss)} .l-vdm{background:var(--vdm)} .l-safety{background:var(--safety)}
+  h2{margin:0 0 4px;font-size:15px;font-weight:600;word-break:break-all}
+  h2 code{font:13px var(--mono);color:var(--muted);font-weight:400}
+  .attrs{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;
+         margin:12px 0 18px;font-size:12.5px}
+  .attrs dt{color:var(--muted);font:11.5px var(--mono)}
+  .attrs dd{margin:0;font:12px var(--mono);word-break:break-all}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font:11px var(--mono);text-transform:uppercase;letter-spacing:.06em}
+  td.rel{font:11.5px var(--mono);color:var(--accent);white-space:nowrap}
+  td a{color:var(--text);text-decoration:none;font:12px var(--mono)}
+  td a:hover{color:var(--accent);text-decoration:underline}
+  .empty{color:var(--muted);font-style:italic}
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px}
+  .toolbar select{background:var(--surface2);border:1px solid var(--border);color:var(--text);
+                  border-radius:6px;padding:6px 8px;font:12px var(--mono)}
+  a.plain{color:var(--accent);text-decoration:none;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Capability · VSS · VDM knowledge graph</h1>
+  <p>Every edge is derived from a checked artifact: the catalog entry, the OpenAPI contract,
+     and the pinned COVESA standards. Start at a capability, then follow what it touches.</p>
+  <div class="meta">
+    <span class="pill">VSS <b>{{ summary.standards.vss or "pinned" }}</b></span>
+    <span class="pill">nodes <b>{{ summary.nodes }}</b></span>
+    <span class="pill">edges <b>{{ summary.edges }}</b></span>
+    {% for layer, count in layer_counts.items() %}
+      <span class="pill">{{ layer }} <b>{{ count }}</b></span>
+    {% endfor %}
+    <a class="plain" href="/vehicle/graph/model.json">model.json</a>
+  </div>
+</header>
+
+<main>
+  <nav id="nav" aria-label="Graph browser">
+    <form class="search" id="search-form">
+      <input id="q" type="search" placeholder="search nodes…" aria-label="Search nodes">
+      <button type="submit">Find</button>
+    </form>
+    <div id="tree"></div>
+  </nav>
+  <section id="detail" aria-live="polite">
+    <p class="empty">Select a node to see its neighbours.</p>
+  </section>
+</main>
+
+<script>
+const LAYER_ORDER = ["capability", "contract", "vss", "vdm", "safety"];
+const state = { nodes: [], edges: [], byId: new Map(), current: null };
+
+function el(tag, attrs, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === "class") node.className = v;
+    else if (k === "onclick") node.addEventListener("click", v);
+    else node.setAttribute(k, v);
+  }
+  for (const child of children) node.append(child);
+  return node;
+}
+
+function nodeRow(node) {
+  return el("div", { class: "node", role: "button", tabindex: "0",
+                     onclick: () => select(node.id),
+                     onkeydown: (e) => { if (e.key === "Enter") select(node.id); } },
+    el("span", { class: "dot l-" + node.layer }),
+    el("span", {}, node.label),
+    el("span", { class: "id" }, node.type));
+}
+
+function renderTree(nodes) {
+  const tree = document.getElementById("tree");
+  tree.replaceChildren();
+  if (!nodes.length) {
+    tree.append(el("p", { class: "empty" }, "No matches."));
+    return;
+  }
+  for (const layer of LAYER_ORDER) {
+    const group = nodes.filter(n => n.layer === layer);
+    if (!group.length) continue;
+    tree.append(el("div", { class: "layer" },
+      el("span", {}, layer), el("span", {}, String(group.length))));
+    for (const node of group) tree.append(nodeRow(node));
+  }
+}
+
+function attrsTable(attributes) {
+  const entries = Object.entries(attributes || {}).filter(([, v]) => v !== null && v !== undefined && v !== "");
+  if (!entries.length) return el("span");
+  const dl = el("dl", { class: "attrs" });
+  for (const [k, v] of entries) {
+    dl.append(el("dt", {}, k), el("dd", {}, Array.isArray(v) ? v.join(", ") : String(v)));
+  }
+  return dl;
+}
+
+async function select(nodeId) {
+  state.current = nodeId;
+  const resp = await fetch(`/vehicle/graph/node/${encodeURIComponent(nodeId)}?depth=1`);
+  if (!resp.ok) return;
+  const data = await resp.json();
+  const node = data.nodes.find(n => n.id === nodeId);
+  const detail = document.getElementById("detail");
+  detail.replaceChildren();
+  if (!node) { detail.append(el("p", { class: "empty" }, "Node not found.")); return; }
+
+  detail.append(el("h2", {}, node.label + " ", el("code", {}, node.id)));
+  detail.append(attrsTable(node.attributes));
+
+  const toolbar = el("div", { class: "toolbar" },
+    el("span", { class: "empty" }, "neighbours"));
+  const depth = el("select", { "aria-label": "Neighbour depth" });
+  for (const d of [1, 2, 3]) {
+    const opt = el("option", { value: String(d) }, `depth ${d}`);
+    if (d === 1) opt.selected = true;
+    depth.append(opt);
+  }
+  depth.addEventListener("change", () => selectAtDepth(nodeId, Number(depth.value)));
+  toolbar.append(depth);
+  detail.append(toolbar);
+
+  const rows = data.edges.filter(e => e.source === nodeId || e.target === nodeId)
+    .map(e => {
+      const outgoing = e.source === nodeId;
+      const otherId = outgoing ? e.target : e.source;
+      const other = data.nodes.find(n => n.id === otherId);
+      return { rel: (outgoing ? "→ " : "← ") + e.relation, other };
+    })
+    .filter(r => r.other);
+
+  const table = el("table", {},
+    el("thead", {}, el("tr", {}, el("th", {}, "relation"), el("th", {}, "node"), el("th", {}, "layer"))));
+  const tbody = el("tbody");
+  for (const row of rows) {
+    const link = el("a", { href: "#", onclick: (ev) => { ev.preventDefault(); select(row.other.id); } },
+      row.other.label);
+    tbody.append(el("tr", {},
+      el("td", { class: "rel" }, row.rel),
+      el("td", {}, link, el("div", { class: "id" }, row.other.id)),
+      el("td", { class: "id" }, row.other.layer)));
+  }
+  table.append(tbody);
+  detail.append(rows.length ? table : el("p", { class: "empty" }, "No neighbours."));
+}
+
+async function selectAtDepth(nodeId, depth) {
+  const resp = await fetch(`/vehicle/graph/node/${encodeURIComponent(nodeId)}?depth=${depth}`);
+  if (!resp.ok) return;
+  const data = await resp.json();
+  renderTree(data.nodes);
+  await select(nodeId);
+}
+
+document.getElementById("search-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const q = document.getElementById("q").value.trim();
+  if (!q) { renderTree(state.nodes); return; }
+  const resp = await fetch(`/vehicle/graph/search?q=${encodeURIComponent(q)}`);
+  const data = await resp.json();
+  renderTree(data.results);
+});
+
+(async function init() {
+  const resp = await fetch("/vehicle/graph/model.json");
+  if (!resp.ok) {
+    document.getElementById("detail").textContent = "Knowledge graph unavailable.";
+    return;
+  }
+  const data = await resp.json();
+  state.nodes = data.nodes;
+  state.edges = data.edges;
+  for (const node of data.nodes) state.byId.set(node.id, node);
+  renderTree(data.nodes);
+  const first = data.nodes.find(n => n.type === "Capability");
+  if (first) select(first.id);
+})();
+</script>
+</body>
+</html>

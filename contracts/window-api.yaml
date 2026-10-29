@@ -135,6 +135,33 @@ paths:
               schema:
                 $ref: "#/components/schemas/WindowSystemModel"
 
+  /capabilities/window/orchestrate:
+    post:
+      operationId: orchestrate
+      summary: Execute a multi-zone window sequence
+      description: |
+        Runs a staged, multi-zone sequence. Each stage moves a named zone group;
+        stages run in order so inrush current is staggered. Modes:
+        CASCADE_OPEN (front row, then rear), CASCADE_CLOSE (rear row, then front),
+        SYNC (all zones in one stage), CUSTOM (caller-supplied stages).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WindowSequenceRequest"
+      responses:
+        "200":
+          description: Sequence result per zone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WindowSequenceState"
+        "409":
+          description: Arbitration conflict on at least one zone
+        "422":
+          description: Input validation failure
+
 components:
   schemas:
     RequestSource:
@@ -290,3 +317,78 @@ components:
         max_position_mm:
           type: number
           x-unit: mm
+
+    WindowSequenceMode:
+      type: string
+      enum: [CASCADE_OPEN, CASCADE_CLOSE, SYNC, CUSTOM]
+
+    WindowGroup:
+      type: string
+      enum: [ROW_1_FRONT, ROW_2_REAR, DRIVER_SIDE, PASSENGER_SIDE, ALL]
+
+    WindowSequenceStage:
+      type: object
+      required: [group, target_pct]
+      additionalProperties: false
+      properties:
+        group:
+          $ref: "#/components/schemas/WindowGroup"
+        target_pct:
+          type: number
+          minimum: 0.0
+          maximum: 100.0
+          x-unit: percent
+        completion_threshold_pct:
+          type: number
+          default: 5.0
+
+    WindowSequenceRequest:
+      type: object
+      required: [mode]
+      additionalProperties: false
+      description: The request source is set by the adapter from the caller's verified
+        role, never from the payload.
+      properties:
+        mode:
+          $ref: "#/components/schemas/WindowSequenceMode"
+        target_pct:
+          type: number
+          minimum: 0.0
+          maximum: 100.0
+          x-unit: percent
+        stages:
+          type: array
+          items:
+            $ref: "#/components/schemas/WindowSequenceStage"
+        request_id:
+          type: string
+          format: uuid
+        timeout_s:
+          type: number
+          default: 60.0
+
+    WindowSequenceStatus:
+      type: string
+      enum: [PENDING, EXECUTING, STAGE_COMPLETE, COMPLETED, PARTIAL, ABORTED, FAILED]
+
+    WindowSequenceState:
+      type: object
+      required: [status, active_stage_index, per_zone, api_version]
+      properties:
+        status:
+          $ref: "#/components/schemas/WindowSequenceStatus"
+        active_stage_index:
+          type: integer
+          minimum: 0
+        per_zone:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/WindowState"
+        reason:
+          type: [string, "null"]
+        request_id:
+          type: [string, "null"]
+          format: uuid
+        api_version:
+          type: string
+          pattern: "^\\d+\\.\\d+\\.\\d+$"
