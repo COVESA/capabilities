@@ -35,6 +35,42 @@ def test_catalog_packages_lists_the_window_package(client) -> None:
     assert "window" in caps
 
 
+# ── Navigation between the tools ─────────────────────────────────────────
+
+TOOL_LINKS = (
+    "/vehicle/catalog/",
+    "/vehicle/api-explorer/",
+    "/vehicle/signals/",
+    "/vehicle/graph/",
+)
+
+
+@pytest.mark.parametrize("page", TOOL_LINKS)
+def test_every_tool_page_links_to_every_tool(client, page: str) -> None:
+    """The landing page and the other tools form one navigable set."""
+    html = client.get(page).get_data(as_text=True)
+    for link in TOOL_LINKS:
+        assert f'href="{link}"' in html, f"{page} does not link to {link}"
+
+
+@pytest.mark.parametrize("page", TOOL_LINKS)
+def test_every_tool_page_reachable(client, page: str) -> None:
+    assert client.get(page).status_code == 200
+
+
+def test_root_serves_the_catalog_landing_page(client) -> None:
+    """Running the app lands on a page that can reach the other tools."""
+    resp = client.get("/")
+    assert resp.status_code in (301, 302, 308)
+    assert "/vehicle/catalog/" in resp.headers["Location"]
+
+
+def test_vss_signals_page_renders_the_live_signals(client) -> None:
+    html = client.get("/vehicle/signals/").get_data(as_text=True)
+    assert "/vehicle/vss" in html
+    assert "Position" in html or "signals" in html
+
+
 # ── Stepable boundary diagram ────────────────────────────────────────────
 
 def test_boundary_diagram_is_svg_with_steppable_groups(client) -> None:

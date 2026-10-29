@@ -280,6 +280,18 @@ def create_app(*, role: str = "oem_automation") -> Flask:
         runtime.refresh()
         return jsonify(runtime.snapshot.to_dict())
 
+    @app.route("/vehicle/signals/")
+    def vss_signals_ui():
+        """Browse the live VSS signals; the JSON form is ``/vehicle/vss``."""
+        runtime = stack.vss
+        if runtime is None:
+            return "VSS view unavailable: run ./scripts/vendor_standards.sh", 503
+        runtime.refresh()
+        return render_template(
+            "vss_signals.html",
+            version=runtime.snapshot.version or "pinned",
+        )
+
     # ── Knowledge graph: capabilities, contracts, VSS, VDM ───────────────
 
     graph_cache: dict[str, object] = {}

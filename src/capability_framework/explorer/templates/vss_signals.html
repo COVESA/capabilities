@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VSS signals — live capability state</title>
+<style>
+  :root {
+    --bg:#0d1117; --surface:#161b22; --surface2:#21262d; --border:#30363d;
+    --text:#e6edf3; --text2:#8b949e; --accent:#58a6ff;
+    --green:#3fb950; --yellow:#d29922; --purple:#bc8cff;
+    --mono:'SF Mono',Consolas,ui-monospace,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+       background:var(--bg);color:var(--text);line-height:1.5}
+  .top-bar{background:var(--surface);border-bottom:1px solid var(--border);
+           padding:12px 24px;display:flex;align-items:center;gap:16px}
+  .top-bar h1{font-size:18px;font-weight:600}
+  .top-bar .nav{display:flex;gap:8px;margin-left:auto}
+  .top-bar .nav a{color:var(--text2);text-decoration:none;padding:6px 12px;
+                  border-radius:6px;font-size:13px}
+  .top-bar .nav a:hover,.top-bar .nav a.active{background:var(--surface2);color:var(--text)}
+  .container{max-width:1200px;margin:0 auto;padding:24px}
+  .lede{color:var(--text2);font-size:13.5px;margin-bottom:18px;max-width:78ch}
+  .lede code{font-family:var(--mono);font-size:12px;color:var(--text)}
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+  .toolbar input{flex:1;min-width:220px;background:var(--surface2);border:1px solid var(--border);
+                 color:var(--text);border-radius:6px;padding:8px 10px;font:13px var(--mono)}
+  .toolbar button{background:var(--surface2);border:1px solid var(--border);color:var(--text);
+                  border-radius:6px;padding:8px 14px;cursor:pointer;font-size:13px}
+  .toolbar button:hover{border-color:var(--accent)}
+  .pill{font:11px var(--mono);color:var(--text2);border:1px solid var(--border);
+        border-radius:999px;padding:5px 10px;background:var(--surface2)}
+  .pill b{color:var(--text);font-weight:600}
+  .zone{margin:22px 0 6px;font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;
+        color:var(--text2);display:flex;gap:10px;align-items:baseline}
+  .zone code{color:var(--accent);letter-spacing:0;text-transform:none;font-size:11.5px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--text2);font:11px var(--mono);text-transform:uppercase;letter-spacing:.06em;
+     position:sticky;top:0;background:var(--bg)}
+  td.sig{font-family:var(--mono);font-size:12px}
+  td.val{font-family:var(--mono);font-size:13px}
+  td.val .num{color:var(--green);font-weight:600}
+  td.val .bool{color:var(--purple);font-weight:600}
+  td.val .str{color:var(--yellow)}
+  td.meta{font-family:var(--mono);font-size:11px;color:var(--text2);white-space:nowrap}
+  td a{color:var(--accent);text-decoration:none;font-family:var(--mono);font-size:11.5px}
+  td a:hover{text-decoration:underline}
+  .empty{color:var(--text2);font-style:italic;padding:14px 0}
+  .muted{color:var(--text2)}
+  footer{margin-top:26px;color:var(--text2);font-size:12px}
+  footer a{color:var(--accent);text-decoration:none;font-family:var(--mono);font-size:12px}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <h1>🚗 SDV Capability Architecture</h1>
+  <div class="nav">
+    <a href="/vehicle/catalog/">Capability Catalog</a>
+    <a href="/vehicle/api-explorer/">API Explorer</a>
+    <a href="/vehicle/signals/" class="active">VSS Signals</a>
+    <a href="/vehicle/graph/">Knowledge Graph</a>
+  </div>
+</div>
+
+<div class="container">
+  <p class="lede">
+    The capability's live state, expressed as <strong>COVESA VSS</strong> signals from the
+    pinned standard. Values are quantized to the datatype and range the standard declares —
+    <code>Position</code> is a <code>uint8</code> percentage, not a float.
+    Move a window in the <a href="/vehicle/api-explorer/">API Explorer</a> and watch the
+    signals change.
+  </p>
+
+  <div class="toolbar">
+    <input id="filter" type="search" placeholder="filter by path, datatype, or instance…"
+           aria-label="Filter signals">
+    <button id="refresh" type="button">Refresh</button>
+    <span class="pill">VSS <b>{{ version }}</b></span>
+    <span class="pill">signals <b id="count">0</b></span>
+    <span class="pill">auto-refresh <b id="tick">on</b></span>
+  </div>
+
+  <div id="signals"></div>
+
+  <footer>
+    Machine-readable: <a href="/vehicle/vss">/vehicle/vss</a> ·
+    single signal: <a href="/vehicle/vss/Vehicle.Cabin.Door.Row1.DriverSide.Window.Position">/vehicle/vss/&lt;path&gt;</a> ·
+    schema and relationships: <a href="/vehicle/graph/">knowledge graph</a>
+  </footer>
+</div>
+
+<script>
+const container = document.getElementById("signals");
+
+function zoneOf(path) {
+  // Vehicle.Cabin.Door.Row1.DriverSide.Window.Position -> the branch, minus the leaf
+  const parts = path.split(".");
+  return parts.slice(0, -1).join(".");
+}
+
+function valueCell(signal) {
+  const cell = document.createElement("td");
+  cell.className = "val";
+  const value = signal.value;
+  if (value === null || value === undefined) {
+    cell.append(Object.assign(document.createElement("span"), { className: "muted", textContent: "—" }));
+  } else if (typeof value === "boolean") {
+    cell.append(Object.assign(document.createElement("span"), { className: "bool", textContent: String(value) }));
+  } else if (typeof value === "number") {
+    cell.append(Object.assign(document.createElement("span"), { className: "num", textContent: String(value) }));
+  } else {
+    cell.append(Object.assign(document.createElement("span"), { className: "str", textContent: String(value) }));
+  }
+  return cell;
+}
+
+function render(payload, filter) {
+  const signals = Object.values(payload.signals || {})
+    .filter(s => !filter || s.path.toLowerCase().includes(filter) ||
+                 String(s.datatype).toLowerCase().includes(filter) ||
+                 String(s.value).toLowerCase().includes(filter))
+    .sort((a, b) => a.path.localeCompare(b.path));
+
+  document.getElementById("count").textContent = String(signals.length);
+  container.replaceChildren();
+
+  if (!signals.length) {
+    container.append(Object.assign(document.createElement("p"),
+      { className: "empty", textContent: "No signals match. Move a window first, or clear the filter." }));
+    return;
+  }
+
+  let currentZone = null;
+  let table = null;
+  let tbody = null;
+
+  for (const signal of signals) {
+    const zone = zoneOf(signal.path);
+    if (zone !== currentZone) {
+      currentZone = zone;
+      const heading = document.createElement("div");
+      heading.className = "zone";
+      heading.append(Object.assign(document.createElement("span"), { textContent: "branch" }));
+      heading.append(Object.assign(document.createElement("code"), { textContent: zone }));
+      container.append(heading);
+
+      table = document.createElement("table");
+      const head = document.createElement("thead");
+      const headRow = document.createElement("tr");
+      for (const label of ["signal", "value", "datatype", "unit", "range", "type", "updated"]) {
+        headRow.append(Object.assign(document.createElement("th"), { textContent: label }));
+      }
+      head.append(headRow);
+      table.append(head);
+      tbody = document.createElement("tbody");
+      table.append(tbody);
+      container.append(table);
+    }
+
+    const row = document.createElement("tr");
+    const pathCell = document.createElement("td");
+    pathCell.className = "sig";
+    pathCell.append(Object.assign(document.createElement("a"),
+      { href: "/vehicle/vss/" + signal.path, textContent: signal.path.split(".").pop() }));
+    row.append(pathCell, valueCell(signal));
+
+    const datatype = document.createElement("td");
+    datatype.className = "meta";
+    datatype.textContent = signal.datatype || "—";
+    row.append(datatype);
+
+    const unit = document.createElement("td");
+    unit.className = "meta";
+    unit.textContent = signal.unit || "—";
+    row.append(unit);
+
+    const range = document.createElement("td");
+    range.className = "meta";
+    range.textContent = (signal.min === null && signal.max === null)
+      ? "—" : `${signal.min ?? "…"} – ${signal.max ?? "…"}`;
+    row.append(range);
+
+    const kind = document.createElement("td");
+    kind.className = "meta";
+    kind.textContent = signal.type || "—";
+    row.append(kind);
+
+    const updated = document.createElement("td");
+    updated.className = "meta";
+    updated.textContent = signal.updated_at ? signal.updated_at.slice(11, 19) + "Z" : "—";
+    row.append(updated);
+
+    tbody.append(row);
+  }
+}
+
+let latest = null;
+
+async function load() {
+  try {
+    const resp = await fetch("/vehicle/vss", { cache: "no-store" });
+    if (!resp.ok) throw new Error(String(resp.status));
+    latest = await resp.json();
+    render(latest, document.getElementById("filter").value.trim().toLowerCase());
+  } catch (err) {
+    container.replaceChildren(Object.assign(document.createElement("p"),
+      { className: "empty", textContent: "VSS view unavailable: " + err.message }));
+  }
+}
+
+document.getElementById("filter").addEventListener("input", () => {
+  if (latest) render(latest, document.getElementById("filter").value.trim().toLowerCase());
+});
+document.getElementById("refresh").addEventListener("click", load);
+
+load();
+let timer = setInterval(load, 2000);
+document.addEventListener("visibilitychange", () => {
+  const label = document.getElementById("tick");
+  if (document.hidden) { clearInterval(timer); timer = null; label.textContent = "paused"; }
+  else if (timer === null) { timer = setInterval(load, 2000); label.textContent = "on"; load(); }
+});
+</script>
+</body>
+</html>

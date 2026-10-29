@@ -54,8 +54,13 @@ API, and each move is simulated by the bond-graph motor model. The page shows
 the northbound response, the model's predicted KPIs, and the live `WINDOW_STATE`
 event stream.
 
-Three interactive views come with the app:
+Five interactive views come with the app, cross-linked from the top bar of every
+page:
 
+- **Capability catalog** —
+  [`/vehicle/catalog/`](http://127.0.0.1:8770/vehicle/catalog/)
+  is the landing page: the capability tree, each capability's contract, its
+  operations, and its model.
 - **Stepable boundary view** —
   [`/vehicle/catalog/?cap=window&tab=boundary`](http://127.0.0.1:8770/vehicle/catalog/?cap=window&tab=boundary)
   draws the capability between its northbound and southbound boundaries, then
@@ -66,6 +71,11 @@ Three interactive views come with the app:
   [`/vehicle/api-explorer/`](http://127.0.0.1:8770/vehicle/api-explorer/)
   lets you pick a target position and run the real `WindowMotorModel`, plotting
   the transfer-function trajectory and its KPIs against the northbound call.
+- **VSS signals** —
+  [`/vehicle/signals/`](http://127.0.0.1:8770/vehicle/signals/)
+  shows the live state as the standard's signals, quantized to the datatypes and
+  ranges VSS declares (`Position` is a `uint8` percent, `IsOpen` a boolean).
+  Move a window in the playground and watch them update.
 - **Knowledge graph** —
   [`/vehicle/graph/`](http://127.0.0.1:8770/vehicle/graph/)
   joins the catalog, the OpenAPI contract, the pinned VSS signals, and the pinned
@@ -211,6 +221,8 @@ instance-dimension mismatch described above.
 ### Where to see it
 
 - [`/vehicle/vss`](http://127.0.0.1:8770/vehicle/vss) — live state as VSS signals.
+  [`/vehicle/signals/`](http://127.0.0.1:8770/vehicle/signals/) is the human view of
+  the same payload.
 - [`/vehicle/graph/`](http://127.0.0.1:8770/vehicle/graph/) — catalog, contract, VSS,
   and VDM as one navigable graph. Text-first by design, with the JSON model as the
   real product: `curl -s localhost:8770/vehicle/graph/model.json | jq '.meta'`
