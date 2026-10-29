@@ -22,6 +22,8 @@ Hardware bindings depend on this package only. It imports nothing else.
 from .ports import (
     ActuatorError,
     ActuatorPortBase,
+    LightingActuatorPort,
+    LightOutput,
     WindowActuatorPort,
 )
 from .profile import PROFILE_SOURCE_TRUST, ActuatorProfile, MoveOutcome, ProfileSource
@@ -30,6 +32,8 @@ __all__ = [
     "ActuatorError",
     "ActuatorPortBase",
     "ActuatorProfile",
+    "LightOutput",
+    "LightingActuatorPort",
     "MoveOutcome",
     "PROFILE_SOURCE_TRUST",
     "ProfileSource",

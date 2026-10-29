@@ -15,9 +15,9 @@ capability_framework.app
 ========================
 Composition root and runnable example application.
 
-Builds the window capability on the simulator binding, injects the physics
-model, and mounts the northbound HTTP adapters. This is the only module that
-knows the binding and the models.
+Builds the window and interior lighting capabilities on their simulator
+bindings, injects the window physics model, and mounts the northbound HTTP
+adapters. This is the only module that knows the bindings and the models.
 
 Run::
 
@@ -40,7 +40,9 @@ from pathlib import Path
 
 from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, url_for
 
-from .bindings import WindowSimulatorPort
+from .bindings import LightingSimulatorPort, WindowSimulatorPort
+from .capabilities.lighting import LightingManager
+from .capabilities.lighting.vss import project_state as project_lighting_state
 from .capabilities.window import (
     API_VERSION,
     MoveWindowCommand,
@@ -55,6 +57,7 @@ from .explorer import create_blueprint as explorer_blueprint
 from .models import WindowMotorModel, WindowMotorParams
 from .northbound import create_blueprint as capabilities_blueprint
 from .semantics import VssCatalog, VssSnapshot, load_capability
+from .semantics.snapshot import Projector
 from .vehicle_state import DriveState, OtaState, PowerState, VehicleState
 
 log = logging.getLogger(__name__)
@@ -122,33 +125,40 @@ class PowerManagerStub:
 
 @dataclass
 class VssRuntime:
-    """The live VSS view: the pinned catalog plus the capability's projected signals."""
+    """The live VSS view: the pinned catalog plus every capability's projected signals."""
 
     bus: EventBus
     snapshot: VssSnapshot
     projector: WindowVssProjector
     catalog: VssCatalog
+    #: Further (topic, projector) feeds sharing the snapshot, e.g. lighting.
+    feeds: list[tuple[str, Projector]] = field(default_factory=list)
 
     def refresh(self) -> None:
         """Project the latest capability state, in case it predates the subscription."""
         state = self.bus.last(Topics.WINDOW_STATE)
         if state is not None:
             self.snapshot.update(self.projector(state))
+        for topic, projector in self.feeds:
+            state = self.bus.last(topic)
+            if state is not None:
+                self.snapshot.update(projector(state))
 
 
 @dataclass
 class Stack:
-    """Every runtime object of the example, wired on one bus and one binding."""
+    """Every runtime object of the example, wired on one bus."""
     bus: EventBus
     vehicle_state: VehicleStateStub
     power: PowerManagerStub
     window: WindowManager
     window_orchestrator: WindowCapabilityOrchestrator
+    lighting: LightingManager | None = None
     vss: "VssRuntime | None" = None
 
 
 def build_stack(*, role: str = "oem_automation") -> Stack:
-    """Compose the example: bus → stub state → binding + model → window capability."""
+    """Compose the example: bus → stub state → bindings + model → capabilities."""
     bus = EventBus()
     vehicle_state = VehicleStateStub(bus=bus)
     power = PowerManagerStub()
@@ -161,6 +171,9 @@ def build_stack(*, role: str = "oem_automation") -> Stack:
     window = WindowManager(actuator=binding, event_bus=bus, motor_model=model)
     window_orchestrator = WindowCapabilityOrchestrator(window, event_bus=bus)
 
+    # Lighting has no plant model: an LED driver settles in milliseconds.
+    lighting = LightingManager(actuator=LightingSimulatorPort(), event_bus=bus)
+
     # Publish the initial vehicle state so the capability's precondition phase has
     # something to read on first use.
     asyncio.run(vehicle_state.publish())
@@ -169,7 +182,7 @@ def build_stack(*, role: str = "oem_automation") -> Stack:
     asyncio.run(window.bind_deployment())
 
     return Stack(bus=bus, vehicle_state=vehicle_state, power=power,
-                 window=window, window_orchestrator=window_orchestrator)
+                 window=window, window_orchestrator=window_orchestrator, lighting=lighting)
 
 
 def build_vss_runtime(stack: Stack) -> VssRuntime | None:
@@ -178,7 +191,8 @@ def build_vss_runtime(stack: Stack) -> VssRuntime | None:
 
     The runtime needs the pinned ``vss.json`` and the window catalog entry. Both are
     checked-in artifacts, so a normal checkout always has them; an installed wheel
-    without them degrades to "no VSS endpoint" instead of failing to boot.
+    without them degrades to "no VSS endpoint" instead of failing to boot. The
+    lighting capability joins the same snapshot when its catalog entry is present.
     """
     vss_json = GENERATED_DIR / "vss.json"
     entry = CATALOG_DIR / "window.yaml"
@@ -201,6 +215,13 @@ def build_vss_runtime(stack: Stack) -> VssRuntime | None:
     stack.bus.subscribe(Topics.WINDOW_STATE, snapshot.handler(projector))
 
     runtime = VssRuntime(bus=stack.bus, snapshot=snapshot, projector=projector, catalog=catalog)
+
+    lighting_entry = CATALOG_DIR / "lighting.yaml"
+    if stack.lighting is not None and lighting_entry.is_file():
+        snapshot.attach(load_capability(lighting_entry))
+        stack.bus.subscribe(Topics.LIGHTING_STATE, snapshot.handler(project_lighting_state))
+        runtime.feeds.append((Topics.LIGHTING_STATE, project_lighting_state))
+
     runtime.refresh()
     return runtime
 
@@ -243,6 +264,7 @@ def create_app(*, role: str = "oem_automation") -> Flask:
         event_bus=stack.bus,
         vehicle_state=stack.vehicle_state.snapshot,
         role=role,
+        lighting=stack.lighting,
     )
     app.register_blueprint(bp)
 
@@ -365,6 +387,7 @@ def main(argv: list[str] | None = None) -> int:
     url = f"http://{args.host}:{args.port}/"
     print(f"Window capability example: {url}")
     print(f"  northbound API: {url}vehicle/window/move  (POST)")
+    print(f"                  {url}vehicle/lighting/set  (POST)")
     if not args.no_browser:
         import webbrowser
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()

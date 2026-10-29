@@ -49,13 +49,19 @@ class UnknownSignal(KeyError):
 
 @dataclass
 class VssSnapshot:
-    """The latest value of every VSS signal a capability projects."""
+    """The latest value of every VSS signal the attached capabilities project."""
 
     catalog: VssCatalog
     spec: CapabilitySpec
     version: str | None = None
     _values: dict[str, Any] = field(default_factory=dict, repr=False)
     _updated: dict[str, datetime] = field(default_factory=dict, repr=False)
+    _extra_specs: list[CapabilitySpec] = field(default_factory=list, repr=False)
+
+    def attach(self, spec: CapabilitySpec) -> None:
+        """Record another capability whose projections share this snapshot."""
+        if spec.name != self.spec.name and all(s.name != spec.name for s in self._extra_specs):
+            self._extra_specs.append(spec)
 
     # ── writing ──────────────────────────────────────────────────────────
 
@@ -100,6 +106,9 @@ class VssSnapshot:
             "version": self.version,
             "capability": self.spec.name,
             "api_version": self.spec.api_version,
+            "capabilities": {
+                spec.name: spec.api_version for spec in (self.spec, *self._extra_specs)
+            },
             "signals": {
                 path: self.signal_view(path) for path in sorted(self._values)
             },

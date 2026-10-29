@@ -29,7 +29,7 @@ delivered in this checkout or has a defined path in [`plan.md`](plan.md).
 
 | # | Goal | What "done" looks like | Status |
 |---|---|---|---|
-| 1 | **A complete example capability API catalog** | Several fully specified capabilities (descriptor, contract, implementation, binding, docs, requirements, tests) — not just windows | **Window complete**; three more planned (Phase 4) |
+| 1 | **A complete example capability API catalog** | Several fully specified capabilities (descriptor, contract, implementation, binding, docs, requirements, tests) — not just windows | **Window complete**; **interior lighting** (`setInteriorLight`) added; two more planned (Phase 4) |
 | 2 | **A capability rule checker** for every new capability | `capability-check --strict` runs in tests, pre-commit, and CI; every catalog entry passes | **Delivered** — 20+ rules, `CAP-0xx`–`CAP-6xx` |
 | 3 | **First-class VSS and VDM integration** | Both standards pinned as submodules; generated artifacts reproducible; every mapping resolved against the pin; the window example uses them at runtime | **Delivered** for VSS + VDM |
 | 4 | **A graph over VSS, VDM, and the capability framework** | A searchable, drill-down knowledge graph with a text-first view and a machine-readable export | **Delivered** (Phase 5); layered canvas view still open |
@@ -309,6 +309,8 @@ concept.
 | [`docs/windows/window-system.svg`](docs/windows/window-system.svg) | Static rendered diagram of the window system and its bindings |
 | [`docs/windows/move-window.md`](docs/windows/move-window.md) | The worked capability definition and its requirements |
 | [`contracts/window-api.yaml`](contracts/window-api.yaml) | The northbound OpenAPI contract for the window capability |
+| [`docs/lighting/set-interior-light.md`](docs/lighting/set-interior-light.md) | The interior lighting capability (`setInteriorLight`), modelled on `moveWindow` |
+| [`contracts/lighting-api.yaml`](contracts/lighting-api.yaml) | The northbound OpenAPI contract for the interior lighting capability |
 
 ## Metadata layering
 

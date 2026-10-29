@@ -28,6 +28,25 @@ VSS_VERSION = '6.1'
 
 #: signal id -> {instance: path}
 SIGNALS = MappingProxyType({
+    # lighting
+    'lighting.color': MappingProxyType({
+        'DRIVER_FRONT': 'Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.Color',
+        'DRIVER_REAR': 'Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.Color',
+        'PASSENGER_FRONT': 'Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.Color',
+        'PASSENGER_REAR': 'Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.Color',
+    }),
+    'lighting.intensity': MappingProxyType({
+        'DRIVER_FRONT': 'Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.Intensity',
+        'DRIVER_REAR': 'Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.Intensity',
+        'PASSENGER_FRONT': 'Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.Intensity',
+        'PASSENGER_REAR': 'Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.Intensity',
+    }),
+    'lighting.is_on': MappingProxyType({
+        'DRIVER_FRONT': 'Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.IsLightOn',
+        'DRIVER_REAR': 'Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.IsLightOn',
+        'PASSENGER_FRONT': 'Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.IsLightOn',
+        'PASSENGER_REAR': 'Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.IsLightOn',
+    }),
     # window
     'window.is_open': MappingProxyType({
         'DRIVER_FRONT': 'Vehicle.Cabin.Door.Row1.DriverSide.Window.IsOpen',
@@ -63,11 +82,26 @@ ALL_PATHS = (
     'Vehicle.Cabin.Door.Row2.PassengerSide.Window.IsOpen',
     'Vehicle.Cabin.Door.Row2.PassengerSide.Window.Position',
     'Vehicle.Cabin.Door.Row2.PassengerSide.Window.Switch',
+    'Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.Color',
+    'Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.Intensity',
+    'Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.IsLightOn',
+    'Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.Color',
+    'Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.Intensity',
+    'Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.IsLightOn',
+    'Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.Color',
+    'Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.Intensity',
+    'Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.IsLightOn',
+    'Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.Color',
+    'Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.Intensity',
+    'Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.IsLightOn',
 )
 
 # Per-signal aliases
+LIGHTING_IS_ON = SIGNALS['lighting.is_on']
+LIGHTING_INTENSITY = SIGNALS['lighting.intensity']
+LIGHTING_COLOR = SIGNALS['lighting.color']
 WINDOW_POSITION = SIGNALS['window.position']
 WINDOW_IS_OPEN = SIGNALS['window.is_open']
 WINDOW_SWITCH = SIGNALS['window.switch']
 
-__all__ = ["ALL_PATHS", "SIGNALS", "VSS_VERSION", 'WINDOW_POSITION', 'WINDOW_IS_OPEN', 'WINDOW_SWITCH']
+__all__ = ["ALL_PATHS", "SIGNALS", "VSS_VERSION", 'LIGHTING_IS_ON', 'LIGHTING_INTENSITY', 'LIGHTING_COLOR', 'WINDOW_POSITION', 'WINDOW_IS_OPEN', 'WINDOW_SWITCH']

@@ -12,6 +12,7 @@
 
 """Hardware bindings: where the abstract southbound port meets real (or simulated) hardware."""
 
+from .lighting_simulator import LightingSimulatorPort
 from .simulator import WindowSimulatorPort
 
-__all__ = ["WindowSimulatorPort"]
+__all__ = ["LightingSimulatorPort", "WindowSimulatorPort"]

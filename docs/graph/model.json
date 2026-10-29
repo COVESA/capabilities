@@ -5,10 +5,11 @@
       "vdm": "pinned"
     },
     "capabilities": [
+      "lighting",
       "window"
     ],
-    "nodes": 57,
-    "edges": 118,
+    "nodes": 101,
+    "edges": 191,
     "layers": [
       "capability",
       "contract",
@@ -18,6 +19,20 @@
     ]
   },
   "nodes": [
+    {
+      "id": "cap:lighting",
+      "type": "Capability",
+      "label": "Interior Lighting Control",
+      "layer": "capability",
+      "attributes": {
+        "domain": "body",
+        "api_version": "1.0.0",
+        "asil_tier": "QM",
+        "state_topic": "LIGHTING_STATE",
+        "capability_id": "urn:capability:body:setInteriorLight",
+        "source": "lighting.yaml"
+      }
+    },
     {
       "id": "cap:window",
       "type": "Capability",
@@ -33,6 +48,16 @@
       }
     },
     {
+      "id": "contract:lighting-api",
+      "type": "Contract",
+      "label": "lighting-api.yaml",
+      "layer": "contract",
+      "attributes": {
+        "schemas": 7,
+        "api_version": "1.0.0"
+      }
+    },
+    {
       "id": "contract:window-api",
       "type": "Contract",
       "label": "window-api.yaml",
@@ -40,6 +65,58 @@
       "attributes": {
         "schemas": 13,
         "api_version": "2.0.0"
+      }
+    },
+    {
+      "id": "op:lighting.canExecuteInteriorLight",
+      "type": "Operation",
+      "label": "canExecuteInteriorLight",
+      "layer": "capability",
+      "attributes": {
+        "transport": "http",
+        "is_async": false,
+        "arbitrated": false,
+        "command": "SetInteriorLightCommand",
+        "response": "LightingState"
+      }
+    },
+    {
+      "id": "op:lighting.getInteriorLightState",
+      "type": "Operation",
+      "label": "getInteriorLightState",
+      "layer": "capability",
+      "attributes": {
+        "transport": "http",
+        "is_async": false,
+        "arbitrated": false,
+        "command": "LightingZone",
+        "response": "LightingState"
+      }
+    },
+    {
+      "id": "op:lighting.releaseInteriorLight",
+      "type": "Operation",
+      "label": "releaseInteriorLight",
+      "layer": "capability",
+      "attributes": {
+        "transport": "http",
+        "is_async": false,
+        "arbitrated": false,
+        "command": "str",
+        "response": "None"
+      }
+    },
+    {
+      "id": "op:lighting.setInteriorLight",
+      "type": "Operation",
+      "label": "setInteriorLight",
+      "layer": "capability",
+      "attributes": {
+        "transport": "http",
+        "is_async": true,
+        "arbitrated": true,
+        "command": "SetInteriorLightCommand",
+        "response": "LightingState"
       }
     },
     {
@@ -160,6 +237,20 @@
       }
     },
     {
+      "id": "port:lighting.get_ambient_light",
+      "type": "SouthboundPort",
+      "label": "get_ambient_light",
+      "layer": "capability",
+      "attributes": {}
+    },
+    {
+      "id": "port:lighting.set_ambient_light",
+      "type": "SouthboundPort",
+      "label": "set_ambient_light",
+      "layer": "capability",
+      "attributes": {}
+    },
+    {
       "id": "port:window.get_window_position",
       "type": "SouthboundPort",
       "label": "get_window_position",
@@ -172,6 +263,42 @@
       "label": "move_window",
       "layer": "capability",
       "attributes": {}
+    },
+    {
+      "id": "req:REQ-LIT-001",
+      "type": "Requirement",
+      "label": "REQ-LIT-001",
+      "layer": "safety",
+      "attributes": {
+        "statement": "The light shall be set to the commanded intensity (0-100%) and color for the commanded zone; an intensity of 0% shall switch the light off."
+      }
+    },
+    {
+      "id": "req:REQ-LIT-002",
+      "type": "Requirement",
+      "label": "REQ-LIT-002",
+      "layer": "safety",
+      "attributes": {
+        "statement": "Commands shall be inhibited if vehicle power is OFF, an OTA update is in progress, or supply voltage is below 11.0 V."
+      }
+    },
+    {
+      "id": "req:REQ-LIT-003",
+      "type": "Requirement",
+      "label": "REQ-LIT-003",
+      "layer": "safety",
+      "attributes": {
+        "statement": "An intensity outside 0-100% or a color that is not \"#RRGGBB\" shall be refused without commanding the actuator."
+      }
+    },
+    {
+      "id": "req:REQ-LIT-004",
+      "type": "Requirement",
+      "label": "REQ-LIT-004",
+      "layer": "safety",
+      "attributes": {
+        "statement": "The capability shall publish its state in VSS terms, quantized to the datatypes the pinned standard declares."
+      }
     },
     {
       "id": "req:REQ-WIN-001",
@@ -210,6 +337,41 @@
       }
     },
     {
+      "id": "schema:LightColor",
+      "type": "Schema",
+      "label": "LightColor",
+      "layer": "contract",
+      "attributes": {}
+    },
+    {
+      "id": "schema:LightingInhibitReason",
+      "type": "Schema",
+      "label": "LightingInhibitReason",
+      "layer": "contract",
+      "attributes": {}
+    },
+    {
+      "id": "schema:LightingState",
+      "type": "Schema",
+      "label": "LightingState",
+      "layer": "contract",
+      "attributes": {}
+    },
+    {
+      "id": "schema:LightingStatus",
+      "type": "Schema",
+      "label": "LightingStatus",
+      "layer": "contract",
+      "attributes": {}
+    },
+    {
+      "id": "schema:LightingZone",
+      "type": "Schema",
+      "label": "LightingZone",
+      "layer": "contract",
+      "attributes": {}
+    },
+    {
       "id": "schema:MoveWindowCommand",
       "type": "Schema",
       "label": "MoveWindowCommand",
@@ -220,6 +382,13 @@
       "id": "schema:RequestSource",
       "type": "Schema",
       "label": "RequestSource",
+      "layer": "contract",
+      "attributes": {}
+    },
+    {
+      "id": "schema:SetInteriorLightCommand",
+      "type": "Schema",
+      "label": "SetInteriorLightCommand",
       "layer": "contract",
       "attributes": {}
     },
@@ -308,6 +477,20 @@
       "attributes": {}
     },
     {
+      "id": "test:test_http_can_execute_interior_light_has_no_side_effects",
+      "type": "TestCase",
+      "label": "test_http_can_execute_interior_light_has_no_side_effects",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
+      "id": "test:test_http_get_interior_light_state_reads_a_zone",
+      "type": "TestCase",
+      "label": "test_http_get_interior_light_state_reads_a_zone",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
       "id": "test:test_http_get_window_state_reads_a_zone",
       "type": "TestCase",
       "label": "test_http_get_window_state_reads_a_zone",
@@ -336,9 +519,51 @@
       "attributes": {}
     },
     {
+      "id": "test:test_http_release_interior_light",
+      "type": "TestCase",
+      "label": "test_http_release_interior_light",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
       "id": "test:test_http_release_window_after_move",
       "type": "TestCase",
       "label": "test_http_release_window_after_move",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
+      "id": "test:test_http_set_interior_light_route",
+      "type": "TestCase",
+      "label": "test_http_set_interior_light_route",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
+      "id": "test:test_lighting_inhibits_on_undervoltage",
+      "type": "TestCase",
+      "label": "test_lighting_inhibits_on_undervoltage",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
+      "id": "test:test_lighting_precondition_inhibits_when_power_off",
+      "type": "TestCase",
+      "label": "test_lighting_precondition_inhibits_when_power_off",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
+      "id": "test:test_lighting_safety_case_refuses_bad_input",
+      "type": "TestCase",
+      "label": "test_lighting_safety_case_refuses_bad_input",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
+      "id": "test:test_lighting_vss_endpoint_reports_the_set_zone",
+      "type": "TestCase",
+      "label": "test_lighting_vss_endpoint_reports_the_set_zone",
       "layer": "safety",
       "attributes": {}
     },
@@ -364,6 +589,13 @@
       "attributes": {}
     },
     {
+      "id": "test:test_set_interior_light_via_northbound_api",
+      "type": "TestCase",
+      "label": "test_set_interior_light_via_northbound_api",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
       "id": "test:test_vss_endpoint_reports_the_moved_zone",
       "type": "TestCase",
       "label": "test_vss_endpoint_reports_the_moved_zone",
@@ -376,6 +608,52 @@
       "label": "test_vss_single_signal_endpoint",
       "layer": "safety",
       "attributes": {}
+    },
+    {
+      "id": "test:test_zero_intensity_switches_the_light_off",
+      "type": "TestCase",
+      "label": "test_zero_intensity_switches_the_light_off",
+      "layer": "safety",
+      "attributes": {}
+    },
+    {
+      "id": "vdm:AmbientLight.color",
+      "type": "VdmField",
+      "label": "AmbientLight.color",
+      "layer": "vdm",
+      "attributes": {
+        "returns": "String",
+        "vspec_fqn": "Vehicle.Cabin.Light.AmbientLight.Color"
+      }
+    },
+    {
+      "id": "vdm:AmbientLight.intensity",
+      "type": "VdmField",
+      "label": "AmbientLight.intensity",
+      "layer": "vdm",
+      "attributes": {
+        "returns": "UInt8",
+        "vspec_fqn": "Vehicle.Cabin.Light.AmbientLight.Intensity"
+      }
+    },
+    {
+      "id": "vdm:AmbientLight.isLightOn",
+      "type": "VdmField",
+      "label": "AmbientLight.isLightOn",
+      "layer": "vdm",
+      "attributes": {
+        "returns": "Boolean",
+        "vspec_fqn": "Vehicle.Cabin.Light.AmbientLight.IsLightOn"
+      }
+    },
+    {
+      "id": "vdm:AmbientLight_InstanceTag",
+      "type": "VdmType",
+      "label": "AmbientLight_InstanceTag",
+      "layer": "vdm",
+      "attributes": {
+        "vspec_fqn": "Vehicle.Cabin.Light.AmbientLight"
+      }
     },
     {
       "id": "vdm:Door_InstanceTag",
@@ -583,9 +861,272 @@
         "min": null,
         "max": null
       }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.Color",
+      "type": "VssSignal",
+      "label": "Color",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.Color",
+        "datatype": "string",
+        "unit": null,
+        "signal_type": "actuator",
+        "min": null,
+        "max": null
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.Intensity",
+      "type": "VssSignal",
+      "label": "Intensity",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.Intensity",
+        "datatype": "uint8",
+        "unit": "percent",
+        "signal_type": "actuator",
+        "min": 1.0,
+        "max": 100.0
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.IsLightOn",
+      "type": "VssSignal",
+      "label": "IsLightOn",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.IsLightOn",
+        "datatype": "boolean",
+        "unit": null,
+        "signal_type": "actuator",
+        "min": null,
+        "max": null
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.Color",
+      "type": "VssSignal",
+      "label": "Color",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.Color",
+        "datatype": "string",
+        "unit": null,
+        "signal_type": "actuator",
+        "min": null,
+        "max": null
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.Intensity",
+      "type": "VssSignal",
+      "label": "Intensity",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.Intensity",
+        "datatype": "uint8",
+        "unit": "percent",
+        "signal_type": "actuator",
+        "min": 1.0,
+        "max": 100.0
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.IsLightOn",
+      "type": "VssSignal",
+      "label": "IsLightOn",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.IsLightOn",
+        "datatype": "boolean",
+        "unit": null,
+        "signal_type": "actuator",
+        "min": null,
+        "max": null
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.Color",
+      "type": "VssSignal",
+      "label": "Color",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.Color",
+        "datatype": "string",
+        "unit": null,
+        "signal_type": "actuator",
+        "min": null,
+        "max": null
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.Intensity",
+      "type": "VssSignal",
+      "label": "Intensity",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.Intensity",
+        "datatype": "uint8",
+        "unit": "percent",
+        "signal_type": "actuator",
+        "min": 1.0,
+        "max": 100.0
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.IsLightOn",
+      "type": "VssSignal",
+      "label": "IsLightOn",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.IsLightOn",
+        "datatype": "boolean",
+        "unit": null,
+        "signal_type": "actuator",
+        "min": null,
+        "max": null
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.Color",
+      "type": "VssSignal",
+      "label": "Color",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.Color",
+        "datatype": "string",
+        "unit": null,
+        "signal_type": "actuator",
+        "min": null,
+        "max": null
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.Intensity",
+      "type": "VssSignal",
+      "label": "Intensity",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.Intensity",
+        "datatype": "uint8",
+        "unit": "percent",
+        "signal_type": "actuator",
+        "min": 1.0,
+        "max": 100.0
+      }
+    },
+    {
+      "id": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.IsLightOn",
+      "type": "VssSignal",
+      "label": "IsLightOn",
+      "layer": "vss",
+      "attributes": {
+        "path": "Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.IsLightOn",
+        "datatype": "boolean",
+        "unit": null,
+        "signal_type": "actuator",
+        "min": null,
+        "max": null
+      }
     }
   ],
   "edges": [
+    {
+      "source": "cap:lighting",
+      "relation": "ANCHORS",
+      "target": "vdm:AmbientLight.color"
+    },
+    {
+      "source": "cap:lighting",
+      "relation": "ANCHORS",
+      "target": "vdm:AmbientLight.intensity"
+    },
+    {
+      "source": "cap:lighting",
+      "relation": "ANCHORS",
+      "target": "vdm:AmbientLight.isLightOn"
+    },
+    {
+      "source": "cap:lighting",
+      "relation": "ANCHORS",
+      "target": "vdm:AmbientLight_InstanceTag"
+    },
+    {
+      "source": "cap:lighting",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.IsLightOn"
+    },
+    {
+      "source": "cap:lighting",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.IsLightOn"
+    },
+    {
+      "source": "cap:lighting",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.IsLightOn"
+    },
+    {
+      "source": "cap:lighting",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.IsLightOn"
+    },
+    {
+      "source": "cap:lighting",
+      "relation": "HAS_CONTRACT",
+      "target": "contract:lighting-api"
+    },
+    {
+      "source": "cap:lighting",
+      "relation": "HAS_REQUIREMENT",
+      "target": "req:REQ-LIT-001"
+    },
+    {
+      "source": "cap:lighting",
+      "relation": "HAS_REQUIREMENT",
+      "target": "req:REQ-LIT-002"
+    },
+    {
+      "source": "cap:lighting",
+      "relation": "HAS_REQUIREMENT",
+      "target": "req:REQ-LIT-003"
+    },
+    {
+      "source": "cap:lighting",
+      "relation": "HAS_REQUIREMENT",
+      "target": "req:REQ-LIT-004"
+    },
+    {
+      "source": "cap:lighting",
+      "relation": "PROVIDES",
+      "target": "op:lighting.canExecuteInteriorLight"
+    },
+    {
+      "source": "cap:lighting",
+      "relation": "PROVIDES",
+      "target": "op:lighting.getInteriorLightState"
+    },
+    {
+      "source": "cap:lighting",
+      "relation": "PROVIDES",
+      "target": "op:lighting.releaseInteriorLight"
+    },
+    {
+      "source": "cap:lighting",
+      "relation": "PROVIDES",
+      "target": "op:lighting.setInteriorLight"
+    },
+    {
+      "source": "cap:lighting",
+      "relation": "REQUIRES",
+      "target": "port:lighting.get_ambient_light"
+    },
+    {
+      "source": "cap:lighting",
+      "relation": "REQUIRES",
+      "target": "port:lighting.set_ambient_light"
+    },
     {
       "source": "cap:window",
       "relation": "ANCHORS",
@@ -707,6 +1248,41 @@
       "target": "port:window.move_window"
     },
     {
+      "source": "contract:lighting-api",
+      "relation": "HAS_SCHEMA",
+      "target": "schema:LightColor"
+    },
+    {
+      "source": "contract:lighting-api",
+      "relation": "HAS_SCHEMA",
+      "target": "schema:LightingInhibitReason"
+    },
+    {
+      "source": "contract:lighting-api",
+      "relation": "HAS_SCHEMA",
+      "target": "schema:LightingState"
+    },
+    {
+      "source": "contract:lighting-api",
+      "relation": "HAS_SCHEMA",
+      "target": "schema:LightingStatus"
+    },
+    {
+      "source": "contract:lighting-api",
+      "relation": "HAS_SCHEMA",
+      "target": "schema:LightingZone"
+    },
+    {
+      "source": "contract:lighting-api",
+      "relation": "HAS_SCHEMA",
+      "target": "schema:RequestSource"
+    },
+    {
+      "source": "contract:lighting-api",
+      "relation": "HAS_SCHEMA",
+      "target": "schema:SetInteriorLightCommand"
+    },
+    {
       "source": "contract:window-api",
       "relation": "HAS_SCHEMA",
       "target": "schema:MoveWindowCommand"
@@ -770,6 +1346,151 @@
       "source": "contract:window-api",
       "relation": "HAS_SCHEMA",
       "target": "schema:WindowZone"
+    },
+    {
+      "source": "op:lighting.canExecuteInteriorLight",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.Intensity"
+    },
+    {
+      "source": "op:lighting.canExecuteInteriorLight",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.Intensity"
+    },
+    {
+      "source": "op:lighting.canExecuteInteriorLight",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.Intensity"
+    },
+    {
+      "source": "op:lighting.canExecuteInteriorLight",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.Intensity"
+    },
+    {
+      "source": "op:lighting.canExecuteInteriorLight",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_http_can_execute_interior_light_has_no_side_effects"
+    },
+    {
+      "source": "op:lighting.getInteriorLightState",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.Color"
+    },
+    {
+      "source": "op:lighting.getInteriorLightState",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.Intensity"
+    },
+    {
+      "source": "op:lighting.getInteriorLightState",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.Color"
+    },
+    {
+      "source": "op:lighting.getInteriorLightState",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.Intensity"
+    },
+    {
+      "source": "op:lighting.getInteriorLightState",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.Color"
+    },
+    {
+      "source": "op:lighting.getInteriorLightState",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.Intensity"
+    },
+    {
+      "source": "op:lighting.getInteriorLightState",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.Color"
+    },
+    {
+      "source": "op:lighting.getInteriorLightState",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.Intensity"
+    },
+    {
+      "source": "op:lighting.getInteriorLightState",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_http_get_interior_light_state_reads_a_zone"
+    },
+    {
+      "source": "op:lighting.releaseInteriorLight",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_http_release_interior_light"
+    },
+    {
+      "source": "op:lighting.setInteriorLight",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.IsLightOn"
+    },
+    {
+      "source": "op:lighting.setInteriorLight",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.IsLightOn"
+    },
+    {
+      "source": "op:lighting.setInteriorLight",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.IsLightOn"
+    },
+    {
+      "source": "op:lighting.setInteriorLight",
+      "relation": "COMMANDS",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.IsLightOn"
+    },
+    {
+      "source": "op:lighting.setInteriorLight",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.Color"
+    },
+    {
+      "source": "op:lighting.setInteriorLight",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.Intensity"
+    },
+    {
+      "source": "op:lighting.setInteriorLight",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.Color"
+    },
+    {
+      "source": "op:lighting.setInteriorLight",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.Intensity"
+    },
+    {
+      "source": "op:lighting.setInteriorLight",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.Color"
+    },
+    {
+      "source": "op:lighting.setInteriorLight",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.Intensity"
+    },
+    {
+      "source": "op:lighting.setInteriorLight",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.Color"
+    },
+    {
+      "source": "op:lighting.setInteriorLight",
+      "relation": "OBSERVES",
+      "target": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.Intensity"
+    },
+    {
+      "source": "op:lighting.setInteriorLight",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_http_set_interior_light_route"
+    },
+    {
+      "source": "op:lighting.setInteriorLight",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_set_interior_light_via_northbound_api"
     },
     {
       "source": "op:window.canExecuteWindow",
@@ -1092,6 +1813,36 @@
       "target": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.Position"
     },
     {
+      "source": "req:REQ-LIT-001",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_set_interior_light_via_northbound_api"
+    },
+    {
+      "source": "req:REQ-LIT-001",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_zero_intensity_switches_the_light_off"
+    },
+    {
+      "source": "req:REQ-LIT-002",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_lighting_inhibits_on_undervoltage"
+    },
+    {
+      "source": "req:REQ-LIT-002",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_lighting_precondition_inhibits_when_power_off"
+    },
+    {
+      "source": "req:REQ-LIT-003",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_lighting_safety_case_refuses_bad_input"
+    },
+    {
+      "source": "req:REQ-LIT-004",
+      "relation": "VERIFIED_BY",
+      "target": "test:test_lighting_vss_endpoint_reports_the_set_zone"
+    },
+    {
       "source": "req:REQ-WIN-001",
       "relation": "VERIFIED_BY",
       "target": "test:test_move_window_via_northbound_api"
@@ -1175,6 +1926,66 @@
       "source": "vss:Vehicle.Cabin.Door.Row2.PassengerSide.Window.Switch",
       "relation": "PROJECTS_TO",
       "target": "vdm:Window.switch"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.Color",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:AmbientLight.color"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.Intensity",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:AmbientLight.intensity"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.IsLightOn",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:AmbientLight.isLightOn"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.Color",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:AmbientLight.color"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.Intensity",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:AmbientLight.intensity"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.IsLightOn",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:AmbientLight.isLightOn"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.Color",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:AmbientLight.color"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.Intensity",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:AmbientLight.intensity"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.IsLightOn",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:AmbientLight.isLightOn"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.Color",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:AmbientLight.color"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.Intensity",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:AmbientLight.intensity"
+    },
+    {
+      "source": "vss:Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.IsLightOn",
+      "relation": "PROJECTS_TO",
+      "target": "vdm:AmbientLight.isLightOn"
     }
   ]
 }

@@ -9,8 +9,8 @@
 #   southbound  - the abstract ports the capability depends on (the hardware seam)
 #
 # Fields follow the runtime catalog's own serialized shape so this file reads
-# the same as the live registry. The running example serves the same descriptor
-# at GET /vehicle/window/catalog.
+# the same as the live registry. The running example serves the same descriptors
+# at GET /vehicle/window/catalog and GET /vehicle/lighting/catalog.
 
 catalog_version: "1.0.0"
 
@@ -145,6 +145,89 @@ capabilities:
         window_mass_kg: {value: 6.5, unit: kg}
         seal_damping_Ns_m: {value: 3600.0, unit: "N*s/m"}
         max_position_mm: {value: 280, unit: mm}
+
+  lighting:
+    descriptor:
+      name: lighting
+      display_name: Interior Lighting Control
+      id: urn:capability:body:setInteriorLight
+      description: >
+        Controls the cabin's ambient lights per zone: on/off, intensity (0-100%),
+        and RGB color. Supports per-zone operation (driver/passenger, front/rear)
+        with arbitration and vehicle-state preconditions.
+      domain: body
+      api_version: "1.0.0"
+      asil_tier: QM
+      state_topic: LIGHTING_STATE
+      contract: contracts/lighting-api.yaml
+
+    # ---- Northbound: callers above the capability ------------------------
+    northbound:
+      - name: setInteriorLight
+        description: Set a single lighting zone's intensity (0% = off, 100% = full) and optional color
+        command_type: SetInteriorLightCommand
+        response_type: LightingState
+        is_async: true
+        requires_arbitration: true
+        vss_paths:
+          - Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.Intensity
+          - Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.Intensity
+          - Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.Intensity
+          - Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.Intensity
+      - name: releaseInteriorLight
+        description: Release the lighting lock for a given request_id
+        command_type: str
+        response_type: "None"
+        is_async: false
+        requires_arbitration: false
+      - name: canExecuteInteriorLight
+        description: Pre-flight check - runs the full pipeline with no side effects
+        command_type: SetInteriorLightCommand
+        response_type: LightingState
+        is_async: false
+        requires_arbitration: false
+      - name: getInteriorLightState
+        description: Read the current state for a zone (on/off, intensity, color)
+        command_type: LightingZone
+        response_type: LightingState
+        is_async: false
+        requires_arbitration: false
+        vss_paths:
+          - Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.Intensity
+
+    # ---- Southbound: the hardware seam below the capability --------------
+    southbound:
+      dependencies:
+        - set_ambient_light
+        - get_ambient_light
+
+      ports:
+        - name: LightingActuatorPort
+          kind: hardware
+          required: true
+          description: Interior ambient-light actuation - the abstract hardware interface.
+          operations:
+            - name: set_ambient_light
+              signature: "set_ambient_light(zone: str, intensity_pct: float, color: str | None) -> LightOutput"
+              description: Command a zone's light (0% = off); returns the resulting output.
+              async: true
+              raises: ActuatorError
+            - name: get_ambient_light
+              signature: "get_ambient_light(zone: str) -> LightOutput"
+              description: Read the current output (intensity_pct, color) for a zone.
+              async: true
+
+        - name: VehicleStatePort
+          kind: infrastructure
+          required: true
+          description: Observation-only view of vehicle state (never a command path).
+          observations:
+            - power_state
+            - ota_state
+            - supply_voltage_v
+
+    # No system_model: an LED driver settles in milliseconds, so the
+    # capability is validated against its contract, not a plant model.
 
 # ---- How the catalog is used ------------------------------------------
 #

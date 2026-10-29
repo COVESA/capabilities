@@ -13,8 +13,9 @@
 """
 capability_framework.northbound.http
 ====================================
-Northbound HTTP adapter for the window capability — the same API surface used in
-the reference deployment: command routes plus an SSE stream of capability state.
+Northbound HTTP adapter for the window and interior lighting capabilities — the
+same API surface used in the reference deployment: command routes plus an SSE
+stream of capability state.
 
 The composition root injects the capability and the event bus; this module never
 builds or binds hardware. Flask (synchronous) serves each request on its own
@@ -41,6 +42,14 @@ from datetime import datetime
 from flask import Blueprint, Response, abort, jsonify, make_response, request, stream_with_context
 
 from ..capabilities.base import RequestSource
+from ..capabilities.lighting import (
+    LightingInhibitReason,
+    LightingManager,
+    LightingState,
+    LightingStatus,
+    LightingZone,
+    SetInteriorLightCommand,
+)
 from ..capabilities.window import (
     MoveWindowCommand,
     WindowCapabilityOrchestrator,
@@ -91,7 +100,7 @@ def _enum_value(value):
     return value.value if hasattr(value, "value") else value
 
 
-def _response_fields(state: WindowState) -> dict:
+def _response_fields(state: WindowState | LightingState) -> dict:
     """The shared fields every capability response carries."""
     return {
         "reason": _enum_value(state.reason),
@@ -108,6 +117,23 @@ def _window_to_dict(st: WindowState) -> dict:
             "zone": _enum_value(st.zone), **_response_fields(st)}
 
 
+def _lighting_to_dict(st: LightingState) -> dict:
+    return {"status": _enum_value(st.status), "intensity_pct": st.intensity_pct,
+            "color": st.color, "zone": _enum_value(st.zone), **_response_fields(st)}
+
+
+_LIGHTING_INPUT_REASONS = {LightingInhibitReason.OUT_OF_RANGE, LightingInhibitReason.INVALID_COLOR}
+
+
+def _lighting_http_status(st: LightingState) -> int:
+    """The contract's status codes: 409 lost arbitration, 422 bad input, else 200."""
+    if st.status is LightingStatus.REJECTED:
+        return 409
+    if st.reason in _LIGHTING_INPUT_REASONS:
+        return 422
+    return 200
+
+
 def create_blueprint(
     *,
     window: WindowManager,
@@ -115,12 +141,13 @@ def create_blueprint(
     event_bus: EventBus,
     vehicle_state: Callable[[], VehicleState],
     role: str,
+    lighting: LightingManager | None = None,
     loop: asyncio.AbstractEventLoop | None = None,
     call_timeout_s: float = 300.0,
     url_prefix: str = "/vehicle",
     name: str = "capabilities",
 ) -> Blueprint:
-    """Build the window command blueprint around the injected capability."""
+    """Build the capability command blueprint around the injected capabilities."""
     source = HTTP_ROLE_TO_SOURCE.get(role)
     if source is None:
         raise PermissionError(f"role {role!r} may not command capabilities over HTTP")
@@ -179,9 +206,15 @@ def create_blueprint(
 
     event_bus.subscribe(Topics.WINDOW_STATE, _on_window_state)
 
+    if lighting is not None:
+        async def _on_lighting_state(payload) -> None:
+            push_sse("LIGHTING_STATE", _lighting_to_dict(payload))
+
+        event_bus.subscribe(Topics.LIGHTING_STATE, _on_lighting_state)
+
     @bp.route("/events")
     def sse_stream():
-        """Server-Sent Events stream — the browser subscribes once and receives window events."""
+        """Server-Sent Events stream — the browser subscribes once and receives capability events."""
         q: queue.Queue = queue.Queue(maxsize=100)
         with sse_lock:
             sse_clients.append(q)
@@ -313,4 +346,78 @@ def create_blueprint(
             "southbound_dependencies": list(desc.southbound_dependencies),
         })
 
+    if lighting is not None:
+        _add_lighting_routes(bp, lighting=lighting, source=source, run=run, body=body)
+
     return bp
+
+
+def _lighting_zone(raw) -> LightingZone:
+    try:
+        return LightingZone(raw)
+    except ValueError:
+        abort(make_response(jsonify(
+            {"error": f"unknown zone {raw!r}; one of: {', '.join(z.value for z in LightingZone)}"}), 400))
+
+
+def _lighting_command(d: dict, source: RequestSource) -> SetInteriorLightCommand:
+    """Build the command from a request body; range and color are the capability's safety case."""
+    if "intensity_pct" not in d:
+        abort(make_response(jsonify({"error": "intensity_pct is required"}), 400))
+    try:
+        intensity = float(d["intensity_pct"])
+        timeout_s = float(d.get("timeout_s", 5.0))
+    except (TypeError, ValueError):
+        abort(make_response(jsonify({"error": "intensity_pct and timeout_s must be numbers"}), 400))
+    color = d.get("color")
+    if color is not None and not isinstance(color, str):
+        abort(make_response(jsonify({"error": "color must be a \"#RRGGBB\" string or null"}), 400))
+    return SetInteriorLightCommand(
+        source=source,
+        zone=_lighting_zone(d.get("zone", "DRIVER_FRONT")),
+        intensity_pct=intensity,
+        color=color,
+        request_id=str(d.get("request_id") or uuid.uuid4()),
+        timeout_s=timeout_s,
+    )
+
+
+def _add_lighting_routes(bp: Blueprint, *, lighting: LightingManager, source: RequestSource,
+                         run: Callable, body: Callable[[], dict]) -> None:
+    """Mount the interior lighting routes (the counterpart of the window routes)."""
+
+    @bp.route("/lighting/set", methods=["POST"])
+    def lighting_set():
+        state = run(lighting.setInteriorLight(_lighting_command(body(), source)))
+        return jsonify(_lighting_to_dict(state)), _lighting_http_status(state)
+
+    @bp.route("/lighting/can-execute", methods=["POST"])
+    def lighting_can_execute():
+        state = run(lighting.can_execute(_lighting_command(body(), source)))
+        return jsonify(_lighting_to_dict(state))
+
+    @bp.route("/lighting/release", methods=["POST"])
+    def lighting_release():
+        d = body()
+        run(lighting.releaseInteriorLight(str(d.get("request_id", ""))))
+        return jsonify({"ok": True})
+
+    @bp.route("/lighting/state")
+    def lighting_state():
+        zone = _lighting_zone(request.args.get("zone", "DRIVER_FRONT"))
+        return jsonify(_lighting_to_dict(run(lighting.getInteriorLightState(zone))))
+
+    @bp.route("/lighting/catalog")
+    def lighting_catalog():
+        """The capability's machine-readable descriptor (for the API catalog)."""
+        desc = lighting.descriptor
+        return jsonify({
+            "name": desc.name,
+            "display_name": desc.display_name,
+            "description": desc.description,
+            "api_version": desc.api_version,
+            "domain": desc.domain,
+            "asil_tier": desc.asil_tier,
+            "northbound_operations": list(desc.northbound_operations),
+            "southbound_dependencies": list(desc.southbound_dependencies),
+        })

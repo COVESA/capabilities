@@ -1,0 +1,236 @@
+openapi: "3.1.0"
+info:
+  title: Interior Lighting Capability API
+  version: "1.0.0"
+  description: |
+    Northbound API contract for the interior lighting capability.
+    Sets the cabin ambient lights per zone (on/off, intensity, color) with
+    arbitration and vehicle-state preconditions. It is the lighting counterpart
+    of the window capability's moveWindow and runs the same five-phase pipeline.
+
+    VSS Alignment (per zone, pinned VSS 6.1):
+      - Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.{IsLightOn,Intensity,Color}
+      - Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide.{IsLightOn,Intensity,Color}
+      - Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide.{IsLightOn,Intensity,Color}
+      - Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide.{IsLightOn,Intensity,Color}
+
+    Intensity: the API uses one value, 0-100 %, where 0 means off. VSS splits
+    this into IsLightOn and Intensity (uint8, 1-100), so 0 % is published as
+    IsLightOn = false.
+
+    ASIL Tier: QM (comfort lighting, no safety interlock)
+  x-capability-name: lighting
+  x-api-version: "1.0.0"
+  x-domain: body
+  x-asil-tier: QM
+
+paths:
+  /capabilities/lighting/set:
+    post:
+      operationId: setInteriorLight
+      summary: Set a lighting zone's intensity and color
+      description: |
+        Runs the five-phase pipeline:
+        1. ARBITRATE - priority-based, first-in-wins with pre-emption
+        2. PRECONDITION CHECK - vehicle state (power, OTA)
+        3. SAFETY CASE - voltage, intensity range, color format
+        4. ACTUATOR CALL - via the lighting actuator port
+        5. STATE PUBLISH - publish result on the event bus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetInteriorLightCommand"
+      responses:
+        "200":
+          description: Command executed, or inhibited by vehicle state (see status/reason)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LightingState"
+        "400":
+          description: Malformed request (not a JSON object, unknown zone, or a self-asserted source)
+        "409":
+          description: Arbitration conflict - lighting held by a higher-priority source
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LightingState"
+        "422":
+          description: Input validation failure (intensity out of range or malformed color)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LightingState"
+        "403":
+          description: Role denied - caller not permitted
+
+  /capabilities/lighting/release:
+    post:
+      operationId: releaseInteriorLight
+      summary: Explicitly release the lighting lock
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [request_id]
+              additionalProperties: false
+              properties:
+                request_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: Lock released
+
+  /capabilities/lighting/can-execute:
+    post:
+      operationId: canExecuteInteriorLight
+      summary: Pre-flight check - no side effects
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetInteriorLightCommand"
+      responses:
+        "200":
+          description: Pre-flight result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LightingState"
+
+  /capabilities/lighting/state:
+    get:
+      operationId: getInteriorLightState
+      parameters:
+        - name: zone
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/LightingZone"
+      responses:
+        "200":
+          description: Current lighting state for zone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LightingState"
+
+components:
+  schemas:
+    RequestSource:
+      type: string
+      enum: [APP, DRIVER, OEM_AUTOMATION, SAFETY]
+
+    LightingZone:
+      type: string
+      enum: [DRIVER_FRONT, PASSENGER_FRONT, DRIVER_REAR, PASSENGER_REAR, ALL]
+      x-vss-mapping:
+        DRIVER_FRONT: "Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide"
+        PASSENGER_FRONT: "Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide"
+        DRIVER_REAR: "Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide"
+        PASSENGER_REAR: "Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide"
+
+    LightColor:
+      type: string
+      pattern: "^#[0-9A-Fa-f]{6}$"
+      description: RGB color as "#RRGGBB", the format VSS AmbientLight.Color declares.
+      x-vss-path: "Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.Color"
+
+    SetInteriorLightCommand:
+      type: object
+      required: [zone, intensity_pct]
+      additionalProperties: false
+      x-frozen: true
+      description: The request source is not part of the payload; the northbound
+        adapter sets it from the caller's verified role. Unknown fields, including
+        `source`, are rejected.
+      properties:
+        zone:
+          $ref: "#/components/schemas/LightingZone"
+        intensity_pct:
+          type: number
+          minimum: 0.0
+          maximum: 100.0
+          description: "Target intensity: 0.0 = off, 100.0 = full brightness"
+          x-vss-path: "Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.Intensity"
+          x-unit: percent
+        color:
+          oneOf:
+            - $ref: "#/components/schemas/LightColor"
+            - type: "null"
+          description: Optional; omitted or null keeps the zone's current color.
+        request_id:
+          type: string
+          format: uuid
+        timeout_s:
+          type: number
+          default: 5.0
+
+    LightingStatus:
+      type: string
+      enum: [ON, OFF, INHIBITED, REJECTED]
+
+    LightingInhibitReason:
+      type: string
+      enum:
+        - POWER_OFF
+        - OTA_IN_PROGRESS
+        - UNDERVOLTAGE
+        - OUT_OF_RANGE
+        - INVALID_COLOR
+        - LIGHTING_BUSY
+        - ACTUATOR_FAULT
+        - RELEASED
+        - TIMEOUT
+
+    LightingState:
+      type: object
+      required: [status, intensity_pct, color, zone, request_id, api_version]
+      x-frozen: true
+      properties:
+        status:
+          $ref: "#/components/schemas/LightingStatus"
+        intensity_pct:
+          type: [number, "null"]
+          description: Null only when the output is unknown (read-back failed and
+            none was confirmed; reason ACTUATOR_FAULT)
+          x-vss-path: "Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide.Intensity"
+          x-unit: percent
+          x-range: [0.0, 100.0]
+        color:
+          oneOf:
+            - $ref: "#/components/schemas/LightColor"
+            - type: "null"
+          description: The zone's color. Null when unknown (ACTUATOR_FAULT), or
+            for zone ALL when no color was commanded (zones may differ).
+        zone:
+          $ref: "#/components/schemas/LightingZone"
+        reason:
+          oneOf:
+            - $ref: "#/components/schemas/LightingInhibitReason"
+            - type: "null"
+          description: Typed inhibit/rejection reason; null on success.
+        message:
+          type: [string, "null"]
+          description: Human-readable context (never branch on this)
+        retry_after_s:
+          type: [number, "null"]
+          description: Seconds until the current lock holder auto-releases;
+            null if no hint.
+        winning_source:
+          oneOf:
+            - $ref: "#/components/schemas/RequestSource"
+            - type: "null"
+        request_id:
+          type: [string, "null"]
+          format: uuid
+          description: Echoed from the command.
+        api_version:
+          type: string
+          pattern: "^\\d+\\.\\d+\\.\\d+$"

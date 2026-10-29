@@ -104,3 +104,4 @@ class Topics:
     """String constants for bus topics — avoids magic strings."""
     VEHICLE_STATE = "vehicle_state"
     WINDOW_STATE = "window_state"
+    LIGHTING_STATE = "lighting_state"

@@ -1,0 +1,176 @@
+# Capability catalog entry — lighting
+#
+# The canonical, machine-checked description of the interior lighting
+# capability. It follows the window capability's shape: a per-zone command
+# (`setInteriorLight`, the counterpart of `moveWindow`) that runs the same
+# five-phase pipeline and publishes its state in VSS terms.
+#
+# Every `vss.signals` template is expanded per instance and resolved against the
+# PINNED VSS (third_party/standards.lock.json). Every `vdm` reference is resolved
+# against the PINNED VDM. `capability-check --strict` fails the build if either
+# does not resolve, so this file cannot drift from the standards.
+
+capability: lighting
+id: urn:capability:body:setInteriorLight
+display_name: Interior Lighting Control
+description: >
+  Controls the cabin's ambient lights per zone: on/off, intensity (0-100%), and
+  RGB color. Supports per-zone operation (driver/passenger, front/rear) with
+  arbitration and vehicle-state preconditions.
+domain: body
+api_version: "1.0.0"
+asil_tier: QM
+state_topic: LIGHTING_STATE
+contract: contracts/lighting-api.yaml
+docs: docs/lighting/set-interior-light.md
+
+southbound_dependencies:
+  - set_ambient_light
+  - get_ambient_light
+
+# ── VSS grounding ─────────────────────────────────────────────────────────
+#
+# Instances are the ambient-light VSS branches. The zone names are the
+# capability's own vocabulary and match the window capability's zones, so a
+# caller addresses "the driver's front zone" the same way in both APIs.
+vss:
+  standard: vss
+  instances:
+    DRIVER_FRONT: Vehicle.Cabin.Light.AmbientLight.Row1.DriverSide
+    PASSENGER_FRONT: Vehicle.Cabin.Light.AmbientLight.Row1.PassengerSide
+    DRIVER_REAR: Vehicle.Cabin.Light.AmbientLight.Row2.DriverSide
+    PASSENGER_REAR: Vehicle.Cabin.Light.AmbientLight.Row2.PassengerSide
+
+  signals:
+    # Mirrors the window split: IsLightOn is the switch the capability commands
+    # (like Window.Switch); Intensity and Color are the observed output (like
+    # Window.Position). The northbound API uses one intensity (0 = off) and the
+    # adapter splits it, because VSS Intensity is a uint8 percent with range
+    # 1-100 and has no "off" value.
+    - id: lighting.is_on
+      role: command
+      template: "{instance}.IsLightOn"
+      datatype: boolean
+      vdm:
+        type: AmbientLight
+        field: isLightOn
+        intent: write
+
+    - id: lighting.intensity
+      role: state
+      template: "{instance}.Intensity"
+      datatype: uint8
+      unit: percent
+      vdm:
+        type: AmbientLight
+        field: intensity
+        intent: read
+
+    - id: lighting.color
+      role: state
+      template: "{instance}.Color"
+      datatype: string
+      vdm:
+        type: AmbientLight
+        field: color
+        intent: read
+
+# ── VDM grounding ─────────────────────────────────────────────────────────
+#
+# VDM projects Vehicle.Cabin.Light.AmbientLight as the AmbientLight type and
+# carries the Row/Side instance dimensions on AmbientLight_InstanceTag.
+vdm:
+  types:
+    - AmbientLight
+  instance_tag:
+    type: AmbientLight_InstanceTag
+    dimensions:
+      - dimension1
+      - dimension2
+    map:
+      DRIVER_FRONT:
+        dimension1: ROW1
+        dimension2: DRIVER_SIDE
+      PASSENGER_FRONT:
+        dimension1: ROW1
+        dimension2: PASSENGER_SIDE
+      DRIVER_REAR:
+        dimension1: ROW2
+        dimension2: DRIVER_SIDE
+      PASSENGER_REAR:
+        dimension1: ROW2
+        dimension2: PASSENGER_SIDE
+
+# ── Requirements ──────────────────────────────────────────────────────────
+#
+# Lighting is QM, so requirements are not mandated by CAP-510; they are declared
+# anyway so the behaviour is traceable to tests like the window capability's.
+requirements:
+  - id: REQ-LIT-001
+    statement: >
+      The light shall be set to the commanded intensity (0-100%) and color for the
+      commanded zone; an intensity of 0% shall switch the light off.
+    verified_by: [test_set_interior_light_via_northbound_api, test_zero_intensity_switches_the_light_off]
+  - id: REQ-LIT-002
+    statement: >
+      Commands shall be inhibited if vehicle power is OFF, an OTA update is in
+      progress, or supply voltage is below 11.0 V.
+    verified_by: [test_lighting_precondition_inhibits_when_power_off, test_lighting_inhibits_on_undervoltage]
+  - id: REQ-LIT-003
+    statement: >
+      An intensity outside 0-100% or a color that is not "#RRGGBB" shall be
+      refused without commanding the actuator.
+    verified_by: [test_lighting_safety_case_refuses_bad_input]
+  - id: REQ-LIT-004
+    statement: >
+      The capability shall publish its state in VSS terms, quantized to the
+      datatypes the pinned standard declares.
+    verified_by: [test_lighting_vss_endpoint_reports_the_set_zone]
+
+# ── Northbound API ────────────────────────────────────────────────────────
+operations:
+  - name: setInteriorLight
+    description: Set a single lighting zone's intensity (0% = off, 100% = full) and optional color
+    command_type: SetInteriorLightCommand
+    response_type: LightingState
+    is_async: true
+    requires_arbitration: true
+    preconditions: [POWER_NOT_OFF, OTA_IDLE, SUPPLY_VOLTAGE_ABOVE_11V]
+    verified_by: [test_http_set_interior_light_route, test_set_interior_light_via_northbound_api]
+    signals:
+      - lighting.is_on
+      - lighting.intensity
+      - lighting.color
+    vdm:
+      - type: AmbientLight
+        field: intensity
+        intent: write
+      - type: AmbientLight
+        field: color
+        intent: write
+
+  - name: releaseInteriorLight
+    description: Release the lighting lock for a given request_id
+    command_type: str
+    response_type: None
+    is_async: false
+    verified_by: [test_http_release_interior_light]
+
+  - name: canExecuteInteriorLight
+    description: Pre-flight check - runs the full pipeline with no side effects
+    command_type: SetInteriorLightCommand
+    response_type: LightingState
+    is_async: false
+    verified_by: [test_http_can_execute_interior_light_has_no_side_effects]
+    signals:
+      - lighting.intensity
+
+  - name: getInteriorLightState
+    description: Read the current state for a zone (on/off, intensity, color)
+    command_type: LightingZone
+    response_type: LightingState
+    is_async: false
+    verified_by: [test_http_get_interior_light_state_reads_a_zone]
+    signals:
+      - lighting.intensity
+      - lighting.color

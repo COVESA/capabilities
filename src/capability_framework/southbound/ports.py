@@ -27,12 +27,15 @@ no bus ids, ECU ids or hardware detail (those never cross the boundary).
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
 from .profile import ActuatorProfile, MoveOutcome, ProfileSource
 
 __all__ = [
     "ActuatorError",
     "ActuatorPortBase",
+    "LightOutput",
+    "LightingActuatorPort",
     "WindowActuatorPort",
 ]
 
@@ -113,3 +116,36 @@ class WindowActuatorPort(ActuatorPortBase):
     @abstractmethod
     async def get_window_position(self, zone: str) -> float:
         """Return the current position for *zone* as a percentage (0.0–100.0)."""
+
+
+@dataclass(frozen=True)
+class LightOutput:
+    """What a light is emitting: intensity (0.0 = off … 100.0 = full) and "#RRGGBB" color."""
+    intensity_pct: float
+    color: str
+
+
+class LightingActuatorPort(ActuatorPortBase):
+    """Interior (ambient) lighting actuation."""
+
+    @abstractmethod
+    async def set_ambient_light(self, zone: str, intensity_pct: float,
+                                color: str | None = None) -> LightOutput:
+        """
+        Command a zone's ambient light.
+
+        Args:
+            zone:          "DRIVER_FRONT" | "PASSENGER_FRONT" | "DRIVER_REAR" | "PASSENGER_REAR" | "ALL"
+            intensity_pct: 0.0 (off) to 100.0 (full brightness)
+            color:         "#RRGGBB", or None to keep the zone's current color
+
+        Returns:
+            The resulting output for *zone* (for "ALL", the DRIVER_FRONT output).
+
+        Raises:
+            ActuatorError: if the actuator rejects the command or the light driver faults.
+        """
+
+    @abstractmethod
+    async def get_ambient_light(self, zone: str) -> LightOutput:
+        """Return the current output for *zone*."""
