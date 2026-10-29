@@ -236,6 +236,7 @@
       <label>Capability</label>
       <select id="explorerCap" onchange="updateExplorerFields()">
         <option value="window">🪟 Window</option>
+        <option value="lighting">💡 Interior Lighting</option>
       </select>
       <label>Source</label>
       <select id="explorerSource">
@@ -571,7 +572,8 @@ function showDetailTab(tab) {
   } else if (tab === 'boundary') {
     const rawOps = (cap.operations || []).map(o => o.name);
     const opList = (rawOps.length ? rawOps : (d.northbound_operations || []))
-      .filter(op => !op.startsWith('can_') && !op.startsWith('release') && op !== 'can_execute');
+      .filter(op => !op.startsWith('can_') && !op.startsWith('release') && op !== 'can_execute'
+                    && !/^get[A-Z]/.test(op));
 
     const cmd = (cap.operations && cap.operations[0] && cap.operations[0].command_type) || 'Request';
 
@@ -1098,17 +1100,23 @@ function updateExplorerFields() {
         <label>Zone</label>
         <select id="fZoneClimate"><option>FRONT</option><option>REAR</option><option>ALL</option></select>
       </div>`;
-  } else if (cap === 'lights') {
+  } else if (cap === 'lighting') {
     el.innerHTML = `
       <div class="control-row">
         <label>Zone</label>
-        <select id="fZoneLight"><option>AMBIENT</option><option>CABIN</option><option>READING</option><option>ALL</option></select>
-        <label>Level</label>
-        <input type="range" id="fLevel" min="0" max="100" value="50" style="width:120px"
-               oninput="document.getElementById('fLevelVal').textContent=this.value">
-        <span id="fLevelVal" style="font-size:13px;">50</span>
-        <label>Colour</label>
-        <input type="text" id="fColour" value="WHITE" style="width:80px; background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:6px;">
+        <select id="fZoneLight">
+          <option>DRIVER_FRONT</option><option>PASSENGER_FRONT</option>
+          <option>DRIVER_REAR</option><option>PASSENGER_REAR</option><option>ALL</option>
+        </select>
+        <label>Intensity %</label>
+        <input type="range" id="fIntensityPct" min="0" max="100" value="60" style="width:150px"
+               oninput="document.getElementById('fIntensityPctVal').textContent=this.value+'%'">
+        <span id="fIntensityPctVal" style="font-size:13px; min-width:36px;">60%</span>
+        <label>Color</label>
+        <input type="color" id="fLightColor" value="#ff8800" style="width:48px; height:30px; background:var(--surface2); border:1px solid var(--border);">
+        <span style="font-size:11.5px; color:var(--text2); margin-left:12px;">
+          0% = off · <em>LightingManager.setInteriorLight()</em>
+        </span>
       </div>`;
   } else if (cap === 'shade') {
     el.innerHTML = `
@@ -1229,11 +1237,13 @@ async function executeCommand() {
     body = { source, temp_c: parseFloat(document.getElementById('fTempC').value),
              fan_speed: parseInt(document.getElementById('fFan').value),
              zone: document.getElementById('fZoneClimate').value };
-  } else if (cap === 'lights') {
-    url = '/vehicle/lights/set';
-    body = { source, zone: document.getElementById('fZoneLight').value,
-             level: parseInt(document.getElementById('fLevel').value),
-             colour: document.getElementById('fColour').value };
+  } else if (cap === 'lighting') {
+    // The request source comes from the caller's verified role; the lighting
+    // route rejects a self-asserted "source" key, so it is not sent.
+    url = '/vehicle/lighting/set';
+    body = { zone: document.getElementById('fZoneLight').value,
+             intensity_pct: parseFloat(document.getElementById('fIntensityPct').value),
+             color: document.getElementById('fLightColor').value.toUpperCase() };
   } else if (cap === 'shade') {
     const mode = document.getElementById('fShadeMode')?.value || 'SINGLE';
     if (mode === 'SINGLE') {

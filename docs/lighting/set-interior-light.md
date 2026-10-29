@@ -72,6 +72,11 @@ curl -s -X POST http://127.0.0.1:8770/vehicle/lighting/set \
 As with the window, the request source comes from the caller's verified role.
 A payload that carries `source` is rejected.
 
+The stepable boundary diagram is at
+[`/vehicle/catalog/?cap=lighting&tab=boundary`](http://127.0.0.1:8770/vehicle/catalog/?cap=lighting&tab=boundary).
+It replays `setInteriorLight()` through the five phases. The API Explorer
+playground at `/vehicle/api-explorer/` runs every lighting operation.
+
 ### 2.3 Required interfaces (southbound and infrastructure)
 
 1. **`LightingActuation` (hardware abstraction)**: provided by the light-driver binding.

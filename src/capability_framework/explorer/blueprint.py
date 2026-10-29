@@ -22,9 +22,12 @@ The two interactive views distilled from the reference explorer:
   * ``/vehicle/api-explorer/`` — the API spec plus the *playground*, which
     drives the real :class:`WindowMotorModel` physics over ``simulate``.
 
-Everything else the catalog UI shows is data-driven from the injected window
-capability's descriptor and plant model, so this module never hard-codes the
-capability's operations. The composition root owns the wiring.
+Everything else the catalog UI shows is data-driven from the injected
+capabilities' descriptors (window, and interior lighting when injected) and the
+window plant model, so this module never hard-codes a capability's operations.
+The composition root owns the wiring. Physics views (transfer function, BOND
+graph, simulate, deployment profile) exist only for the window, which is the
+only capability with a plant model.
 
 Deployment topology (which ECU or zone controller hosts the capability) is out
 of scope: that is a downstream concern a binding layer extends, not part of the
@@ -35,11 +38,14 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from flask import Blueprint, Response, jsonify, redirect, render_template, request, url_for
 
+from ..capabilities.base import Capability
+from ..capabilities.lighting import LightingManager
 from ..capabilities.window import WindowManager
 from ..models import WindowMotorModel
 from .bond_graph import window_motor_bond_graph
@@ -51,6 +57,21 @@ from .capability_diagram import (
 _CONTRACT_ARTIFACT = re.compile(r"contracts/([a-z0-9]+(?:-[a-z0-9]+)*-api\.yaml)")
 
 
+@dataclass(frozen=True)
+class _Package:
+    """How one capability is grouped and labelled in the explorer's package tree."""
+    capability: Capability
+    package: str
+    display_name: str
+    icon: str
+    description: str
+    contract: str
+
+    @property
+    def path(self) -> str:
+        return f"vehicle.{self.capability.descriptor.domain}.{self.package}"
+
+
 def _enum_value(value: Any) -> Any:
     return value.value if hasattr(value, "value") else value
 
@@ -58,21 +79,31 @@ def _enum_value(value: Any) -> Any:
 def create_blueprint(
     *,
     window: WindowManager,
+    lighting: LightingManager | None = None,
     motor_factory: Callable[[], WindowMotorModel] | None = None,
     contracts_dir: Path | None = None,
     url_prefix: str = "/vehicle",
     name: str = "explorer",
 ) -> Blueprint:
     """
-    Build the explorer blueprint around the injected window capability.
+    Build the explorer blueprint around the injected capabilities.
 
-    ``window`` supplies the descriptor, the northbound operations and the
-    southbound dependencies. ``motor_factory`` supplies a fresh physics model per
-    request (defaults to the deployed ``WindowMotorModel``); ``contracts_dir`` is
-    where the capability's API contract is read from for the catalog's contract
-    tab.
+    ``window`` (and ``lighting``, when given) supply the descriptor, the
+    northbound operations and the southbound dependencies. ``motor_factory``
+    supplies a fresh window physics model per request (defaults to the deployed
+    ``WindowMotorModel``); ``contracts_dir`` is where each capability's API
+    contract is read from for the catalog's contract tab.
     """
     bp = Blueprint(name, __name__, url_prefix=url_prefix, template_folder="templates")
+
+    packages: dict[str, _Package] = {
+        "window": _Package(window, "window", "Windows", "🪟",
+                           "Power window movement capabilities.", "contracts/window-api.yaml"),
+    }
+    if lighting is not None:
+        packages["lighting"] = _Package(lighting, "lighting", "Interior Lighting", "💡",
+                                        "Cabin ambient lighting capabilities.",
+                                        "contracts/lighting-api.yaml")
 
     def make_motor() -> WindowMotorModel:
         if motor_factory is not None:
@@ -83,22 +114,24 @@ def create_blueprint(
         return WindowMotorModel()
 
     def build_catalog_dict() -> dict[str, dict[str, Any]]:
-        """The flat catalog entry the UI and the diagrams both read from."""
-        desc = window.descriptor
-        operations = [
-            {
-                "name": op.name,
-                "description": op.description,
-                "command_type": op.command_type,
-                "response_type": op.response_type,
-                "is_async": op.is_async,
-                "requires_arbitration": op.requires_arbitration,
-                "vss_paths": list(op.vss_paths),
-            }
-            for op in window.northbound_api
-        ]
-        return {
-            "window": {
+        """The flat catalog entries the UI and the diagrams both read from."""
+        catalog: dict[str, dict[str, Any]] = {}
+        for key, pkg in packages.items():
+            cap = pkg.capability
+            desc = cap.descriptor
+            operations = [
+                {
+                    "name": op.name,
+                    "description": op.description,
+                    "command_type": op.command_type,
+                    "response_type": op.response_type,
+                    "is_async": op.is_async,
+                    "requires_arbitration": op.requires_arbitration,
+                    "vss_paths": list(op.vss_paths),
+                }
+                for op in cap.northbound_api
+            ]
+            catalog[key] = {
                 "descriptor": {
                     "name": desc.name,
                     "display_name": desc.display_name,
@@ -110,29 +143,31 @@ def create_blueprint(
                     "southbound_dependencies": list(desc.southbound_dependencies),
                 },
                 "operations": operations,
-                "state_topic": _enum_value(window.state_topic),
+                "state_topic": _enum_value(cap.state_topic),
                 "system_model": desc.system_model_params,
-                "navigation_path": f"vehicle.body.window.{desc.name}",
-                "contract": "contracts/window-api.yaml",
+                "navigation_path": f"{pkg.path}.{desc.name}",
+                "contract": pkg.contract,
             }
-        }
+        return catalog
 
     def build_packages_view() -> list[dict[str, Any]]:
-        desc = window.descriptor
-        return [{
-            "name": "window",
-            "display_name": "Windows",
-            "icon": "🪟",
-            "description": "Power window movement capabilities.",
-            "path": "vehicle.body.window",
-            "capabilities": [{
-                "name": "window",
-                "display_name": desc.display_name,
-                "asil_tier": desc.asil_tier,
-                "navigation_path": f"vehicle.body.window.{desc.name}",
-                "generic": False,
-            }],
-        }]
+        return [
+            {
+                "name": pkg.package,
+                "display_name": pkg.display_name,
+                "icon": pkg.icon,
+                "description": pkg.description,
+                "path": pkg.path,
+                "capabilities": [{
+                    "name": key,
+                    "display_name": pkg.capability.descriptor.display_name,
+                    "asil_tier": pkg.capability.descriptor.asil_tier,
+                    "navigation_path": f"{pkg.path}.{pkg.capability.descriptor.name}",
+                    "generic": False,
+                }],
+            }
+            for key, pkg in packages.items()
+        ]
 
     def catalog_entry(capability: str) -> dict[str, Any] | None:
         return build_catalog_dict().get(capability)

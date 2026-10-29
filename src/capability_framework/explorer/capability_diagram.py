@@ -41,6 +41,7 @@ No external dependencies — emits an SVG string.
 from __future__ import annotations
 
 import html
+import re
 from typing import Any
 
 
@@ -136,16 +137,18 @@ def _derive(cap: dict[str, Any]) -> dict[str, Any]:
     cmd_type = ops[0]["command_type"] if ops else "Request"
     resp_type = ops[0]["response_type"] if ops else "State"
     # The manager block renders "ASIL {tier}", so keep just the tier (e.g. "B"
-    # from "ASIL_B") to avoid printing "ASIL ASIL_B".
+    # from "ASIL_B") to avoid printing "ASIL ASIL_B". QM is not an ASIL level.
     asil = str(d.get("asil_tier", "QM"))
     if asil.upper().startswith("ASIL_"):
         asil = asil[len("ASIL_"):]
+    safety = "QM" if asil.upper() == "QM" else f"ASIL {asil}"
     return {
         "name": d.get("display_name") or d.get("name", "Capability"),
         "key": (d.get("name", "cap")).lower(),
         "short": (d.get("name", "cap")).upper(),
         "domain": d.get("domain", "body"),
         "asil": asil,
+        "safety": safety,
         "version": d.get("api_version", "1.0.0"),
         "nb_ops": d.get("northbound_operations", []),
         "sb_deps": d.get("southbound_dependencies", []),
@@ -153,6 +156,10 @@ def _derive(cap: dict[str, Any]) -> dict[str, Any]:
         "resp_type": resp_type,
         "state_topic": cap.get("state_topic", "state"),
         "has_model": bool(cap.get("system_model")),
+        "has_orchestrator": any(
+            re.search(r"orchestrate|cascade|sequence|sync", op, re.IGNORECASE)
+            for op in d.get("northbound_operations", [])
+        ),
     }
 
 
@@ -175,6 +182,7 @@ _PHYS: dict[str, dict[str, str]] = {
         "actuator": "Window Lift Motor (DC)",
         "chain": "SE(V) → R,L → GY → J,B → TF → pane",
         "output": "Pane position 0–300 mm",
+        "feedback": "Hall pulses",
         "icon": "⚙",
     },
     "seating": {
@@ -186,11 +194,12 @@ _PHYS: dict[str, dict[str, str]] = {
         "icon": "⚙",
     },
     "lighting": {
-        "effort": "Voltage  V_supply (SE)",
-        "flow": "Current  I  (A)",
-        "actuator": "LED Array Driver",
-        "chain": "SE(V) → R → diode → optical",
-        "output": "Luminous flux (lm)",
+        "effort": "PWM duty · V_supply (SE)",
+        "flow": "LED current  I  (A)",
+        "actuator": "Ambient RGB LED Driver",
+        "chain": "SE(V) → PWM → R → LED (diode) → optical",
+        "output": "Intensity 0–100 % · color #RRGGBB",
+        "feedback": "LED current sense",
         "icon": "💡",
     },
     "climate": {
@@ -356,12 +365,22 @@ def capability_boundary_svg(cap: dict[str, Any]) -> str:
 
     # Domain Capability Orchestrator (DCO) — sits INSIDE the domain, above Mgr.
     # Drives the manager through its public NB API only (never touches HW).
+    # A capability without orchestration operations has no DCO: draw the slot
+    # greyed so the reference layering stays visible without claiming one.
     dcox, dcoy, dcow, dcoh = 415, 300, 390, 36
-    s.append('<g id="bd-dco" class="bd-step">')
-    s.append(_box(dcox, dcoy, dcow, dcoh, fill="#161b22", stroke="#a371f7", rx=6))
-    s.append(_text(dcox + dcow / 2, dcoy + 22,
-                   f"{c['short']} DOMAIN CAPABILITY ORCHESTRATOR", size=11,
-                   fill="#a371f7", weight="bold"))
+    if c["has_orchestrator"]:
+        s.append('<g id="bd-dco" class="bd-step">')
+        s.append(_box(dcox, dcoy, dcow, dcoh, fill="#161b22", stroke="#a371f7", rx=6))
+        s.append(_text(dcox + dcow / 2, dcoy + 22,
+                       f"{c['short']} DOMAIN CAPABILITY ORCHESTRATOR", size=11,
+                       fill="#a371f7", weight="bold"))
+    else:
+        s.append('<g id="bd-dco" class="bd-step" opacity="0.45">')
+        s.append(_box(dcox, dcoy, dcow, dcoh, fill="#0d1117", stroke="#6e7681",
+                      dash="5 3", rx=6))
+        s.append(_text(dcox + dcow / 2, dcoy + 22,
+                       "no domain orchestrator — single-zone API only", size=10,
+                       fill="#8b949e", italic=True))
     s.append('</g>')
 
     # Caller arrows down through the NB API boundary (four peers → NB).
@@ -376,10 +395,11 @@ def capability_boundary_svg(cap: dict[str, Any]) -> str:
     # Direct: NB → Manager (bypasses DCO). Orchestrated: NB → DCO → Manager.
     s.append(_arrow(cx - 90, nby + nbh, cx - 90, my,
                     colour="#f0883e", marker="arrowO"))
-    s.append(_arrow(cx + 60, nby + nbh, dcox + dcow / 2 + 60, dcoy,
-                    colour="#a371f7", marker="arrowP"))            # NB → DCO
-    s.append(_arrow(dcox + dcow / 2, dcoy + dcoh, mx + mw / 2, my,
-                    colour="#a371f7", dash="4 3", marker="arrowP"))  # DCO → mgr (via NB API)
+    if c["has_orchestrator"]:
+        s.append(_arrow(cx + 60, nby + nbh, dcox + dcow / 2 + 60, dcoy,
+                        colour="#a371f7", marker="arrowP"))            # NB → DCO
+        s.append(_arrow(dcox + dcow / 2, dcoy + dcoh, mx + mw / 2, my,
+                        colour="#a371f7", dash="4 3", marker="arrowP"))  # DCO → mgr (via NB API)
 
     # VehicleStateDeterminator → manager PRECONDITION (subscribe via EventBus,
     # not the NB API — it is observation data, BR-007).
@@ -397,7 +417,7 @@ def capability_boundary_svg(cap: dict[str, Any]) -> str:
     s.append(_box(mx, my, mw, mh, fill="#161b22", stroke="#58a6ff", sw=2.2))
     s.append(_text(cx, my + 24, f"{c['short']} CAPABILITY MANAGER",
                    size=13, fill="#58a6ff", weight="bold"))
-    s.append(_text(cx, my + 42, f"ASIL {c['asil']} · v{c['version']}",
+    s.append(_text(cx, my + 42, f"{c['safety']} · v{c['version']}",
                    size=10, fill="#8b949e"))
     s.append('</g>')
 
@@ -480,11 +500,14 @@ def capability_boundary_svg(cap: dict[str, Any]) -> str:
                          f"output ▸ {pe['output']}"],
                         size=10, fill="#8b949e", line_h=15))
     s.append(_text(pmx + pmw / 2, pmy + pmh - 6,
-                   "Hardware Binding plant — see Transfer Function / BOND graph",
+                   "Hardware Binding plant — see Transfer Function / BOND graph"
+                   if c["has_model"] else
+                   "Hardware Binding plant — no plant model; validated against its contract",
                    size=9, fill="#6e7681", italic=True))
     s.append(_arrow(sbx + sbw / 2, sby + sbh, pmx + pmw / 2, pmy,
                     colour="#f0883e", sw=2.4, marker="arrowO", marker_start="arrowOStart"))
-    s.append(_text(sbx + sbw / 2 + 10, (sby + sbh + pmy) / 2, "effort out ▼ / ▲ flow back (Hall pulses)",
+    feedback = f" ({pe['feedback']})" if pe.get("feedback") else ""
+    s.append(_text(sbx + sbw / 2 + 10, (sby + sbh + pmy) / 2, f"effort out ▼ / ▲ flow back{feedback}",
                    size=9, fill="#f0883e", anchor="start"))
     s.append('</g>')
 
@@ -575,7 +598,7 @@ def capability_architecture_svg(cap: dict[str, Any]) -> str:
     s.append(_box(mgx, mgy, mgw, mgh, fill="#1c2333", stroke="#58a6ff", sw=2.6))
     s.append(_text(cx, mgy + 26, f"{c['short']} CAPABILITY MANAGER", size=13,
                    fill="#58a6ff", weight="bold"))
-    s.append(_text(cx, mgy + 44, f"domain={c['domain']} · ASIL {c['asil']} · v{c['version']}",
+    s.append(_text(cx, mgy + 44, f"domain={c['domain']} · {c['safety']} · v{c['version']}",
                    size=10, fill="#8b949e"))
     s.append(_multiline(cx, mgy + 74,
                         ["ARBITRATE → PRECONDITION → SAFETY",

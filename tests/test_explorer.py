@@ -100,6 +100,67 @@ def test_unknown_diagram_kind_is_404(client) -> None:
     assert client.get("/vehicle/capability-diagram/window/nonsense").status_code == 404
 
 
+# ── Lighting in the explorer ─────────────────────────────────────────────
+
+def test_catalog_lists_the_lighting_capability(client) -> None:
+    body = client.get("/vehicle/catalog/data").get_json()
+    entry = body["lighting"]
+    assert entry["descriptor"]["display_name"] == "Interior Lighting Control"
+    assert entry["contract"] == "contracts/lighting-api.yaml"
+    assert entry["state_topic"] == "lighting_state"
+    assert entry["operations"][0]["name"] == "setInteriorLight"
+    assert entry["operations"][0]["command_type"] == "SetInteriorLightCommand"
+
+    packages = client.get("/vehicle/catalog/packages").get_json()["packages"]
+    lighting = next(pkg for pkg in packages if pkg["name"] == "lighting")
+    assert lighting["capabilities"][0]["navigation_path"] == "vehicle.body.lighting.lighting"
+
+
+def test_lighting_boundary_diagram_renders_the_lighting_capability(client) -> None:
+    resp = client.get("/vehicle/capability-diagram/lighting/boundary")
+    assert resp.status_code == 200
+    assert resp.mimetype == "image/svg+xml"
+    svg = resp.get_data(as_text=True)
+    for node in ("bd-feature", "bd-nb", "bd-mgr", "bd-phase-4", "bd-sb", "bd-plant", "bd-eb", "bd-resp"):
+        assert f'id="{node}"' in svg
+    assert "LIGHTING CAPABILITY MANAGER" in svg
+    assert "SetInteriorLightCommand" in svg
+    assert "LightingState" in svg
+    assert "Topics.LIGHTING_STATE" in svg
+    assert "set_ambient_light, get_ambient_light" in svg
+    assert "Ambient RGB LED Driver" in svg
+    # QM is not an ASIL level, and the window's motor feedback does not apply.
+    assert "QM · v1.0.0" in svg
+    assert "ASIL QM" not in svg
+    assert "Hall pulses" not in svg
+    assert "no plant model" in svg
+    # Lighting has no orchestration operations, so no orchestrator is claimed.
+    assert "LIGHTING DOMAIN CAPABILITY ORCHESTRATOR" not in svg
+    assert "no domain orchestrator" in svg
+
+
+def test_window_boundary_keeps_its_orchestrator_and_plant_labels(client) -> None:
+    svg = client.get("/vehicle/capability-diagram/window/boundary").get_data(as_text=True)
+    assert "WINDOW DOMAIN CAPABILITY ORCHESTRATOR" in svg
+    assert "Hall pulses" in svg
+    assert "see Transfer Function / BOND graph" in svg
+
+
+def test_lighting_architecture_diagram_and_model(client) -> None:
+    assert client.get("/vehicle/capability-diagram/lighting/architecture").status_code == 200
+    assert client.get("/vehicle/capability-arch/lighting/data").status_code == 200
+
+
+def test_lighting_contract_artifact_is_served(client) -> None:
+    body = client.get("/vehicle/catalog/artifact/contracts/lighting-api.yaml").get_json()
+    assert "operationId: setInteriorLight" in body["content"]
+
+
+def test_lighting_has_no_physics_views(client) -> None:
+    for path in ("/vehicle/transfer-function/lighting", "/vehicle/deployment-profile/lighting"):
+        assert client.get(path).status_code == 404
+
+
 # ── Model views ──────────────────────────────────────────────────────────
 
 def test_transfer_function_returns_trajectory(client) -> None:

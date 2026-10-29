@@ -494,25 +494,54 @@ const SCHEMAS = {
     },
   },
   lighting: {
-    setLights: {
+    setInteriorLight: {
       command: [
-        { name:'source', type:'RequestSource', req:true, desc:'Caller identity' },
-        { name:'zone', type:'LightZone AMBIENT|CABIN|READING|ALL', req:true, desc:'Lighting zone' },
-        { name:'level', type:'int [0–100]', req:true, desc:'Brightness level (0=off, 100=max)' },
-        { name:'colour', type:'str', req:false, desc:'Colour name or hex (e.g. WHITE, WARM, #FF8800)' },
+        { name:'zone', type:'LightingZone', req:true, desc:'DRIVER_FRONT / PASSENGER_FRONT / DRIVER_REAR / PASSENGER_REAR / ALL → Vehicle.Cabin.Light.AmbientLight.Row{1,2}.{Driver,Passenger}Side' },
+        { name:'intensity_pct', type:'float [0–100]', req:true, desc:'0.0 = off, 100.0 = full brightness (VSS: IsLightOn + Intensity 1–100)' },
+        { name:'color', type:'str "#RRGGBB" | None', req:false, desc:'RGB color; omitted keeps the zone\'s current color (VSS: Color)' },
+        { name:'source', type:'RequestSource', req:true, desc:'Caller identity — set by northbound adapter from the verified role, never self-asserted (BR-014)' },
+        { name:'request_id', type:'str (UUID)', req:false, desc:'Unique request ID — auto-generated if omitted' },
+        { name:'timeout_s', type:'float', req:false, desc:'Request timeout — default 5.0 s; the light holds its output on expiry (BR-016)' },
       ],
       response: [
-        { name:'status', type:'LightStatus', req:true, desc:'ACTIVE | INHIBITED | REJECTED' },
-        { name:'zone', type:'LightZone', req:true, desc:'Zone controlled' },
-        { name:'level', type:'int', req:true, desc:'Applied level' },
-        { name:'colour', type:'str', req:true, desc:'Applied colour' },
-        { name:'winning_source', type:'RequestSource | None', req:true, desc:'Lock holder' },
-        { name:'reason', type:'LightInhibitReason | None', req:true, desc:'Typed inhibit reason (BR-002)' },
+        { name:'status', type:'LightingStatus', req:true, desc:'ON | OFF | INHIBITED | REJECTED' },
+        { name:'intensity_pct', type:'float | None', req:true, desc:'Resulting intensity; None only when unknown (ACTUATOR_FAULT)' },
+        { name:'color', type:'str | None', req:true, desc:'Resulting color; None for ALL when no color was commanded' },
+        { name:'zone', type:'LightingZone', req:true, desc:'Zone this response is for' },
+        { name:'reason', type:'LightingInhibitReason | None', req:true, desc:'POWER_OFF | OTA_IN_PROGRESS | UNDERVOLTAGE | OUT_OF_RANGE | INVALID_COLOR | LIGHTING_BUSY | ACTUATOR_FAULT | RELEASED | TIMEOUT' },
         { name:'retry_after_s', type:'float | None', req:true, desc:'Retry hint in seconds (NB-4)' },
-        { name:'request_id', type:'str', req:true, desc:'Echoed request ID (NB-4)' },
+        { name:'winning_source', type:'RequestSource | None', req:true, desc:'Source holding the lighting lock' },
+        { name:'request_id', type:'str', req:true, desc:'Echoed from the command (NB-4)' },
         { name:'api_version', type:'str', req:true, desc:'Capability API version (BR-013)' },
       ],
       pipeline: ['ARBITRATE','PRECONDITION','SAFETY','ACTUATOR','PUBLISH'],
+    },
+    releaseInteriorLight: {
+      command: [
+        { name:'request_id', type:'str', req:true, desc:'request_id from the original setInteriorLight command' },
+      ],
+      response: [
+        { name:'ok', type:'bool', req:true, desc:'Lock released' },
+      ],
+      pipeline: [],
+    },
+    can_execute: {
+      command: [
+        { name:'(same as setInteriorLight)', type:'SetInteriorLightCommand', req:true, desc:'Runs Arbitrate + Precondition + Safety with zero side effects (BR-012)' },
+      ],
+      response: [
+        { name:'(LightingState)', type:'LightingState', req:true, desc:'Current output; status INHIBITED/REJECTED with a typed reason if the command would be refused' },
+      ],
+      pipeline: ['ARBITRATE','PRECONDITION','SAFETY'],
+    },
+    getInteriorLightState: {
+      command: [
+        { name:'zone', type:'LightingZone', req:true, desc:'Query parameter: zone to read' },
+      ],
+      response: [
+        { name:'(LightingState)', type:'LightingState', req:true, desc:'status ON/OFF · intensity_pct · color · zone' },
+      ],
+      pipeline: [],
     },
   },
 };
@@ -597,16 +626,57 @@ const PLAYGROUND = {
     },
   },
   lighting: {
-    setLights: {
-      endpoint: '/vehicle/lights/set',
+    setInteriorLight: {
+      endpoint: '/vehicle/lighting/set',
       method: 'POST',
       hasPhysics: false,
       fields: [
-        { id:'zone', label:'Zone', type:'select', options:['AMBIENT','CABIN','READING','ALL'] },
-        { id:'level', label:'Brightness', type:'range', min:0, max:100, value:70, unit:'%' },
-        { id:'colour', label:'Colour', type:'text', value:'WHITE', placeholder:'WHITE, WARM, #FF8800…' },
+        { id:'zone', label:'Zone', type:'select',
+          options:['DRIVER_FRONT','PASSENGER_FRONT','DRIVER_REAR','PASSENGER_REAR','ALL'] },
+        { id:'intensity_pct', label:'Intensity', type:'range', min:0, max:100, value:60,
+          unit:'%', hint:'0% = off  ·  100% = full brightness' },
+        { id:'color', label:'Color (#RRGGBB, blank keeps current)', type:'text', value:'#FF8800', placeholder:'#FF8800' },
       ],
-      buildBody: (f) => ({ zone:f.zone, level:Number(f.level), colour:f.colour }),
+      buildBody: (f) => ({
+        zone: f.zone,
+        intensity_pct: Number(f.intensity_pct),
+        color: f.color.trim() ? f.color.trim() : null,
+      }),
+    },
+    can_execute: {
+      endpoint: '/vehicle/lighting/can-execute',
+      method: 'POST',
+      hasPhysics: false,
+      fields: [
+        { id:'zone', label:'Zone', type:'select',
+          options:['DRIVER_FRONT','PASSENGER_FRONT','DRIVER_REAR','PASSENGER_REAR','ALL'] },
+        { id:'intensity_pct', label:'Intensity', type:'range', min:0, max:100, value:60, unit:'%' },
+        { id:'color', label:'Color (#RRGGBB, blank keeps current)', type:'text', value:'', placeholder:'#FF8800' },
+      ],
+      buildBody: (f) => ({
+        zone: f.zone,
+        intensity_pct: Number(f.intensity_pct),
+        color: f.color.trim() ? f.color.trim() : null,
+      }),
+    },
+    getInteriorLightState: {
+      endpoint: '/vehicle/lighting/state',
+      method: 'GET',
+      hasPhysics: false,
+      fields: [
+        { id:'zone', label:'Zone', type:'select',
+          options:['DRIVER_FRONT','PASSENGER_FRONT','DRIVER_REAR','PASSENGER_REAR'] },
+      ],
+      buildBody: (f) => ({ zone: f.zone }),
+    },
+    releaseInteriorLight: {
+      endpoint: '/vehicle/lighting/release',
+      method: 'POST',
+      hasPhysics: false,
+      fields: [
+        { id:'request_id', label:'Request ID to release', type:'text', value:'', placeholder:'UUID from the set response' },
+      ],
+      buildBody: (f) => ({ request_id: f.request_id }),
     },
   },
   recline_seat: {
@@ -983,7 +1053,9 @@ async function runApiCommand() {
   document.getElementById('btnRunApi').disabled = true;
 
   try {
-    const resp = await fetch(op.endpoint, {
+    const isGet = op.method === 'GET';
+    const url = isGet ? `${op.endpoint}?${new URLSearchParams(body)}` : op.endpoint;
+    const resp = await fetch(url, isGet ? { method: 'GET' } : {
       method: op.method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

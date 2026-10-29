@@ -270,6 +270,7 @@ def create_app(*, role: str = "oem_automation") -> Flask:
 
     explorer = explorer_blueprint(
         window=stack.window,
+        lighting=stack.lighting,
         motor_factory=WindowMotorModel,
         contracts_dir=CONTRACTS_DIR,
     )
